@@ -1,0 +1,32 @@
+name: App para Mac (DMG)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mac/**"
+      - "assets/**"
+      - ".github/workflows/app-mac.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Construir la app y el DMG
+        run: bash mac/build.sh
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete app --yes --cleanup-tag || true
+          gh release create app dist/ReelStudio.dmg \
+            --title "Reel Studio para Mac" \
+            --notes "Abre el DMG y arrastra Reel Studio a Aplicaciones. El programa se actualiza solo desde este repositorio." \
+            --latest

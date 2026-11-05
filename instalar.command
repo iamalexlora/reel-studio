@@ -84,14 +84,23 @@ if [ "$ARCH" = "arm64" ]; then
   echo "ok"
 fi
 
-paso "Creando la app «Reel Studio»"
-mkdir -p "$HOME/Applications"
-APP="$HOME/Applications/Reel Studio.app"
-rm -rf "$APP"
-osacompile -o "$APP" -e "do shell script quoted form of \"$DEST/start.sh\" & \" > /dev/null 2>&1 &\"" >/dev/null
-cp "$DEST/assets/ReelStudio.icns" "$APP/Contents/Resources/applet.icns"
-touch "$APP"
-echo "ok: $APP (búscala en Launchpad o con Spotlight: «Reel Studio»)"
+FROM_APP=0
+[ -f "$DEST/.desde-app" ] && FROM_APP=1 && rm -f "$DEST/.desde-app"
+if [ -d "/Applications/Reel Studio.app/Contents/Resources/reel-studio" ] || [ "$FROM_APP" = 1 ]; then
+  # Ya está la app de verdad (DMG): el lanzador viejo sobra
+  OLD="$HOME/Applications/Reel Studio.app"
+  [ -f "$OLD/Contents/Resources/Scripts/main.scpt" ] && rm -rf "$OLD"
+else
+  paso "Creando el acceso «Reel Studio»"
+  mkdir -p "$HOME/Applications"
+  APP="$HOME/Applications/Reel Studio.app"
+  rm -rf "$APP"
+  osacompile -o "$APP" -e "do shell script quoted form of \"$DEST/start.sh\" & \" > /dev/null 2>&1 &\"" >/dev/null
+  cp "$DEST/assets/ReelStudio.icns" "$APP/Contents/Resources/applet.icns"
+  touch "$APP"
+  echo "ok: $APP (búscala en Launchpad o con Spotlight: «Reel Studio»)"
+  echo "Consejo: la app con ventana propia está en Releases de tu GitHub (ReelStudio.dmg)."
+fi
 
 paso "Prueba rápida"
 "$DEST/.venv/bin/python" - <<'EOF'
@@ -104,7 +113,13 @@ print("subtítulos (libass):", "sí" if " ass " in out else "NO — revisa ffmpe
 print("H.264:", "libx264" if E.has_encoder("libx264") else ("VideoToolbox" if E.has_encoder("h264_videotoolbox") else "NO"))
 EOF
 
-"$DEST/start.sh"
-echo
-echo "Listo. Reel Studio se abrió en tu navegador."
-echo "Para abrirlo otra vez: app «Reel Studio» en Launchpad, o pídeselo a Claude."
+if [ "$FROM_APP" = 1 ]; then
+  "$DEST/start.sh" --sin-navegador
+  echo
+  echo "Listo. Ya puedes cerrar esta ventana: Reel Studio se abre en su propia ventana."
+else
+  "$DEST/start.sh"
+  echo
+  echo "Listo. Reel Studio se abrió en tu navegador."
+  echo "Para abrirlo otra vez: app «Reel Studio» en Launchpad, o pídeselo a Claude."
+fi

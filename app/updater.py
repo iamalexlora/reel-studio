@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent          # ~/ReelStudio
 CONFIG = ROOT / "config" / "update.json"
 VERSION = ROOT / "VERSION"
-KEEP = {"proyectos", ".venv", "logs", "config", "VERSION"}   # nunca se tocan
+KEEP = {"proyectos", ".venv", "runtime", "logs", "config", "VERSION"}   # nunca se tocan
 
 
 def cfg() -> dict:

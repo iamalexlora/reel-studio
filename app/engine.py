@@ -19,6 +19,16 @@ import unicodedata
 import uuid
 from pathlib import Path
 
+IS_WIN = os.name == "nt"
+if IS_WIN:  # en Windows, que ffmpeg no abra ventanas negras de consola
+    _Popen = subprocess.Popen
+
+    class _QuietPopen(_Popen):
+        def __init__(self, *a, **k):
+            k.setdefault("creationflags", 0x08000000)  # CREATE_NO_WINDOW
+            super().__init__(*a, **k)
+    subprocess.Popen = _QuietPopen
+
 APP_DIR = Path(__file__).resolve().parent
 FONTS_DIR = APP_DIR / "fonts"
 HOME = Path(os.environ.get("REEL_HOME", Path.home() / "ReelStudio"))
@@ -39,6 +49,10 @@ def _lock(pid: str) -> threading.Lock:
 # ---------------------------------------------------------------- herramientas
 
 def which(name: str) -> str | None:
+    exe = name + (".exe" if IS_WIN else "")
+    bundled = Path(__file__).resolve().parent.parent / "runtime" / "ffmpeg" / "bin" / exe
+    if bundled.exists():          # Windows: ffmpeg viene dentro del instalador
+        return str(bundled)
     p = shutil.which(name)
     if p:
         return p
@@ -56,6 +70,8 @@ FFPROBE = which("ffprobe") or "ffprobe"
 def ffmpeg_major() -> int:
     try:
         out = subprocess.run([FFMPEG, "-version"], capture_output=True, text=True).stdout
+        if re.search(r"ffmpeg version N-", out):   # compilación del día: la más nueva
+            return 99
         m = re.search(r"ffmpeg version n?(\d+)", out)
         return int(m.group(1)) if m else 6
     except Exception:
@@ -364,9 +380,18 @@ def transcribe(p: dict, progress=lambda f, msg="": None, language="es") -> list[
     except ImportError:
         from faster_whisper import WhisperModel
         engine_used = "faster-whisper"
-        model = os.environ.get("REEL_WHISPER_MODEL", "small")
-        progress(0.03, "Cargando modelo de voz…")
-        m = WhisperModel(model, device="auto", compute_type="int8")
+        model = os.environ.get("REEL_WHISPER_MODEL", "large-v3-turbo")
+        progress(0.03, "Cargando modelo de voz (la primera vez se descarga, ≈1,6 GB)…")
+        m = None
+        if gpu_ready(progress):
+            try:
+                m = WhisperModel(model, device="cuda", compute_type="float16")
+                engine_used = "faster-whisper-cuda"
+            except Exception:
+                m = None
+        if m is None:
+            m = WhisperModel(model, device="cpu", compute_type="int8")
+        progress(0.06, "Transcribiendo…")
         import wave
         import numpy as np
         with wave.open(str(wav), "rb") as wf:
@@ -399,6 +424,46 @@ def transcribe(p: dict, progress=lambda f, msg="": None, language="es") -> list[
         pass
     p["engine"] = engine_used
     return out
+
+
+def _nvidia_dll_dirs():
+    import site
+    out = []
+    for sp in site.getsitepackages() + [site.getusersitepackages()]:
+        base = Path(sp) / "nvidia"
+        if base.exists():
+            out += [p for p in base.glob("*/bin") if p.is_dir()]
+    return out
+
+
+def gpu_ready(progress=lambda f, msg="": None) -> bool:
+    """Windows/Linux con tarjeta NVIDIA: prepara CUDA la primera vez. En Mac no aplica."""
+    if os.environ.get("REEL_NO_GPU"):
+        return False
+    try:
+        import ctranslate2
+        if ctranslate2.get_cuda_device_count() < 1:
+            return False
+    except Exception:
+        return False
+    if IS_WIN and not _nvidia_dll_dirs():
+        marker = HOME / "logs" / "gpu-intento.txt"
+        if marker.exists():
+            return False
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("1")
+        progress(0.02, "Activando tu tarjeta NVIDIA (solo la primera vez, ≈1 GB)…")
+        import sys
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--no-warn-script-location",
+                        "nvidia-cublas-cu12", "nvidia-cudnn-cu12==9.*"], capture_output=True)
+    if IS_WIN:
+        for d in _nvidia_dll_dirs():
+            try:
+                os.add_dll_directory(str(d))
+                os.environ["PATH"] = str(d) + os.pathsep + os.environ.get("PATH", "")
+            except Exception:
+                pass
+    return True
 
 
 # ---------------------------------------------------------------- limpieza

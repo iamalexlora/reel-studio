@@ -1,0 +1,34 @@
+name: App para Windows (instalador)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "win/**"
+      - "assets/**"
+      - ".github/workflows/app-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  setup-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Construir y probar
+        shell: pwsh
+        run: ./win/build.ps1
+      - name: Publicar en Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete windows --yes --cleanup-tag 2>$null
+          gh release create windows dist/ReelStudio-Setup.exe --title "Reel Studio para Windows" --notes "Ejecuta ReelStudio-Setup.exe. El programa se actualiza solo desde este repositorio."

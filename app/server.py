@@ -209,6 +209,10 @@ class H(BaseHTTPRequestHandler):
         try:
             if parts == ["api", "projects"]:
                 return self.upload(q)
+            if parts == ["api", "shutdown"]:
+                self.send_json({"ok": True})
+                threading.Timer(0.2, lambda: os._exit(0)).start()
+                return
             if parts == ["api", "update"]:
                 if any(j["status"] == "running" and j["kind"] == "export" for j in JOBS.values()):
                     return self.send_json({"error": "Espera a que termine la exportación."}, 409)
@@ -252,6 +256,8 @@ class H(BaseHTTPRequestHandler):
                     path = E.project_dir(pid) / "exports" / name
                     if sys.platform == "darwin" and path.exists():
                         subprocess.Popen(["open", "-R", str(path)])
+                    elif os.name == "nt" and path.exists():
+                        subprocess.Popen(["explorer", "/select,", str(path)])
                     return self.send_json({"ok": True, "path": str(path)})
             self.send_json({"error": "ruta no encontrada"}, 404)
         except Exception as ex:

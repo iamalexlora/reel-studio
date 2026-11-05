@@ -6,18 +6,27 @@ vertical 1080×1920 con subtítulos animados.
 
 ## Instalar (una sola vez)
 
-1. Descomprime la carpeta donde quieras (por ejemplo, en Descargas).
-2. Haz **clic derecho → Abrir** sobre `instalar.command`. La primera vez macOS pregunta si
-   confías en el archivo: elige **Abrir**.
-3. Si no tienes Homebrew, te pedirá la contraseña de tu Mac (no se ve mientras escribes).
-4. Al final se abre Reel Studio en el navegador. Tarda unos 10–15 minutos la primera vez, porque
-   descarga el modelo de voz (≈1,6 GB).
+**App para Mac (recomendado):**
+1. En GitHub, entra a tu repositorio → **Releases** → **Reel Studio para Mac** y descarga `ReelStudio.dmg`.
+2. Ábrelo y arrastra **Reel Studio** a **Aplicaciones**.
+3. La primera vez macOS la bloquea porque no está firmada por Apple: ábrela, toca **OK**, ve a
+   **Ajustes del Sistema → Privacidad y seguridad**, baja hasta «Reel Studio» y toca **Abrir de todos modos**.
+4. Al abrirla te pide tu token de GitHub (solo lectura) para las actualizaciones automáticas.
+5. Si es una Mac nueva, se abre la Terminal para instalar ffmpeg y el modelo de voz (≈1,6 GB, 10–15 min).
+
+**Sin la app (alternativa):** descomprime el paquete y haz clic derecho → Abrir sobre `instalar.command`.
 
 Todo queda en `~/ReelStudio`. Tus proyectos están en `~/ReelStudio/proyectos`.
 
+## Actualizaciones
+
+Reel Studio se actualiza solo desde GitHub cada vez que lo abres. Si ya estaba abierto, aparece el
+botón **«Actualización disponible»** arriba, o usa el menú **Reel Studio → Buscar actualizaciones…**.
+Tus proyectos nunca se tocan.
+
 ## Usar
 
-- Abre la app **Reel Studio** (Launchpad o Spotlight), o pídeselo a Claude.
+- Abre **Reel Studio** desde Aplicaciones, Launchpad o Spotlight (se abre en su propia ventana), o pídeselo a Claude.
 - Arrastra tu video. Cuando termine de transcribir:
   - **Clic** en una palabra: el video salta ahí.
   - **Arrastrar** o **Shift + clic**: seleccionar varias. **⌫** las quita o las restaura.

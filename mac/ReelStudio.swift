@@ -131,13 +131,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         booting = true
         defer { booting = false }
         removeOldLauncher()
-        if serverUp() {   // ya estaba corriendo (por ejemplo, Claude lo abrió)
-            _ = run("/bin/bash", [root.appendingPathComponent("start.sh").path, "--sin-navegador"])
-            loadEditor()
-            return
-        }
+        var copied = false
         // Copia el programa que viene dentro de la app si falta o es de antes del actualizador.
         if !exists("app/server.py") || !exists("app/updater.py") {
+            copied = true
             show("Preparando Reel Studio", "Copiando el programa…")
             try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             run("/usr/bin/rsync", ["-a", "--exclude", "proyectos", "--exclude", ".venv", "--exclude", "logs",
@@ -173,6 +170,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
             return
         }
 
+        // Si quedó corriendo una versión vieja del servidor, se apaga para usar la nueva.
+        if copied && serverUp() {
+            run("/bin/bash", [root.appendingPathComponent("stop.sh").path])
+            for _ in 0..<20 { if !serverUp() { break }; Thread.sleep(forTimeInterval: 0.25) }
+        }
         show("Abriendo Reel Studio", "Buscando actualizaciones…")
         let (code, out) = run("/bin/bash", [root.appendingPathComponent("start.sh").path, "--sin-navegador"])
         for _ in 0..<60 {

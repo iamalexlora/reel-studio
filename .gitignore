@@ -1,0 +1,8 @@
+proyectos/
+.venv/
+logs/
+config/
+VERSION
+__pycache__/
+*.pyc
+.DS_Store

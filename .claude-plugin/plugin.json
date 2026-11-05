@@ -1,0 +1,7 @@
+{
+  "name": "reel-studio",
+  "version": "1.0.0",
+  "description": "Editor local de reels para Mac: transcribe tus videos en crudo, quita silencios, muletillas y tomas repetidas, agrega subtítulos animados y exporta en vertical 1080×1920. Claude puede editar los proyectos por ti.",
+  "author": { "name": "Alex" },
+  "keywords": ["video", "reels", "subtitulos", "edicion", "ffmpeg", "whisper"]
+}

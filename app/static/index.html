@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel Studio</title>
+<link rel="icon" type="image/png" href="/static/logo-64.png">
+<link rel="apple-touch-icon" href="/static/logo-256.png">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="bar">
+    <button class="rail-toggle" id="railToggle" aria-label="Mostrar proyectos" title="Proyectos">
+      <svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <div class="brand"><img src="/static/logo.svg" alt="" width="28" height="28">Reel Studio</div>
+    <input class="title" id="projTitle" aria-label="Nombre del proyecto" placeholder="Sin proyecto" disabled>
+    <div class="spacer"></div>
+    <div class="dur" id="durLabel"></div>
+    <button class="btn small update" id="updateBtn" hidden>Actualización disponible</button>
+    <div class="savestate" id="saveState" aria-live="polite"></div>
+    <button class="btn ghost" id="undoBtn" title="Deshacer (⌘Z)" disabled>Deshacer</button>
+    <button class="btn primary" id="exportBtn" disabled>Exportar</button>
+  </header>
+
+  <aside class="rail" id="rail">
+    <label class="newvid">
+      <input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v" hidden>
+      <span>Subir video</span>
+    </label>
+    <nav id="projList" aria-label="Proyectos"></nav>
+  </aside>
+
+  <main class="manuscript" id="main">
+    <div class="empty" id="emptyState">
+      <div class="drop" id="dropZone">
+        <h1>Suelta aquí tu video en crudo</h1>
+        <p>Grábate sin miedo a equivocarte. Reel Studio transcribe, quita silencios y muletillas, y tú decides el resto tachando palabras.</p>
+        <label class="btn primary big"><input type="file" id="fileInput2" accept="video/*,.mov,.mp4,.m4v" hidden>Elegir video</label>
+        <p class="fine">MP4 o MOV · se procesa en tu Mac, nada se sube a internet</p>
+      </div>
+    </div>
+
+    <div class="working" id="workingState" hidden>
+      <div class="working-inner">
+        <h2 id="workTitle">Transcribiendo</h2>
+        <div class="meter"><div id="workBar"></div></div>
+        <p id="workMsg">Preparando…</p>
+        <p class="fine">La primera vez tarda más porque se carga el modelo de voz.</p>
+      </div>
+    </div>
+
+    <div class="doc" id="docState" hidden>
+      <div class="doc-head">
+        <p class="hint">Haz clic en una palabra para ir a ese momento. Arrastra o usa Shift para seleccionar varias y pulsa <kbd>⌫</kbd> para quitarlas. Doble clic corrige el subtítulo.</p>
+        <div class="legend">
+          <span><s class="lg-cut">tachado</s> no sale</span>
+          <span><span class="lg-sug">subrayado</span> posible muletilla</span>
+        </div>
+      </div>
+      <div class="text" id="text" tabindex="0" aria-label="Transcripción editable"></div>
+    </div>
+
+    <div class="seltools" id="selTools" hidden>
+      <button class="btn small" data-act="cut">Quitar</button>
+      <button class="btn small" data-act="keep">Restaurar</button>
+      <button class="btn small ghost" data-act="edit">Corregir texto</button>
+      <button class="btn small ghost" data-act="play">Reproducir</button>
+    </div>
+  </main>
+
+  <section class="side" id="side">
+    <div class="phone-wrap">
+      <div class="phone" id="phone">
+        <video id="videoBg" class="vbg" playsinline preload="auto" muted hidden aria-hidden="true"></video>
+        <video id="video" playsinline preload="auto"></video>
+        <div class="cap" id="cap"></div>
+        <div class="phone-empty" id="phoneEmpty">Vista previa 9:16</div>
+      </div>
+      <div class="transport">
+        <button class="play" id="playBtn" aria-label="Reproducir" disabled>
+          <svg id="playIcon" viewBox="0 0 20 20" width="20" height="20"><path d="M6 4l10 6-10 6z" fill="currentColor"/></svg>
+        </button>
+        <div class="tc"><span id="tcNow">0:00.0</span><span class="tc-of"> / <span id="tcTotal">0:00.0</span></span></div>
+        <label class="mini-toggle" title="Ver el video sin cortes"><input type="checkbox" id="rawToggle"> Sin cortes</label>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" class="tab on" data-tab="fmtTab" aria-selected="true">Formato</button>
+      <button role="tab" class="tab" data-tab="styleTab" aria-selected="false">Subtítulos</button>
+      <button role="tab" class="tab" data-tab="paceTab" aria-selected="false">Ritmo</button>
+      <button role="tab" class="tab" data-tab="logTab" aria-selected="false">Actividad <span class="dot" id="logDot" hidden></span></button>
+    </div>
+
+    <div class="panel" id="fmtTab">
+      <div class="formats" id="fmtSeg">
+        <button data-v="vertical"><i style="aspect-ratio:9/16"></i><b>9:16</b><span>Reels, TikTok</span></button>
+        <button data-v="horizontal"><i style="aspect-ratio:16/9"></i><b>16:9</b><span>YouTube</span></button>
+        <button data-v="4:5"><i style="aspect-ratio:4/5"></i><b>4:5</b><span>Feed</span></button>
+        <button data-v="cuadrado"><i style="aspect-ratio:1/1"></i><b>1:1</b><span>Cuadrado</span></button>
+      </div>
+      <div id="fitBox">
+        <div class="field">
+          <label>Cómo encaja tu video</label>
+          <div class="seg" id="fitSeg"><button data-v="llenar">Recortar</button><button data-v="difuminado">Fondo difuminado</button></div>
+        </div>
+        <div class="field" id="cropXBox">
+          <label for="cropXR">Mover el encuadre <output id="cropXOut"></output></label>
+          <input type="range" id="cropXR" min="0" max="1" step="0.01">
+        </div>
+        <div class="field" id="cropYBox">
+          <label for="cropYR">Mover el encuadre (vertical) <output id="cropYOut"></output></label>
+          <input type="range" id="cropYR" min="0" max="1" step="0.01">
+        </div>
+      </div>
+      <p class="fine" id="srcInfo"></p>
+    </div>
+
+    <div class="panel" id="styleTab" hidden>
+      <div class="presets" id="presets"></div>
+      <div class="field row">
+        <label for="subsOn">Subtítulos en el video</label>
+        <input type="checkbox" class="switch" id="subsOn">
+      </div>
+      <div class="field">
+        <label for="fontSel">Letra</label>
+        <select id="fontSel"></select>
+      </div>
+      <div class="field">
+        <label for="sizeR">Tamaño <output id="sizeOut"></output></label>
+        <input type="range" id="sizeR" min="40" max="220" step="2">
+      </div>
+      <div class="field colors">
+        <label>Colores</label>
+        <div class="swatches">
+          <label class="sw"><input type="color" id="colText"><span>Texto</span></label>
+          <label class="sw"><input type="color" id="colHi"><span>Resaltado</span></label>
+          <label class="sw"><input type="color" id="colOl"><span>Borde</span></label>
+          <label class="sw"><input type="color" id="colBox"><span>Caja</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Posición</label>
+        <div class="seg" id="posSeg">
+          <button data-v="arriba">Arriba</button><button data-v="centro">Centro</button><button data-v="abajo">Abajo</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="wordsR">Palabras por pantalla <output id="wordsOut"></output></label>
+        <input type="range" id="wordsR" min="1" max="8" step="1">
+      </div>
+      <div class="field row"><label for="upperOn">Mayúsculas</label><input type="checkbox" class="switch" id="upperOn"></div>
+      <div class="field row"><label for="boxOn">Caja detrás del texto</label><input type="checkbox" class="switch" id="boxOn"></div>
+      <div class="field row"><label for="olR">Grosor del borde <output id="olOut"></output></label><input type="range" id="olR" min="0" max="14" step="1"></div>
+    </div>
+
+    <div class="panel" id="paceTab" hidden>
+      <div class="field row"><label for="silOn">Quitar silencios</label><input type="checkbox" class="switch" id="silOn"></div>
+      <div class="field">
+        <label for="pauseR">Pausa más larga permitida <output id="pauseOut"></output></label>
+        <input type="range" id="pauseR" min="0.1" max="1.2" step="0.05">
+        <p class="fine">Más corta = ritmo más rápido. 0,3 s suena natural para reels.</p>
+      </div>
+      <div class="field">
+        <label for="padR">Aire alrededor de cada palabra <output id="padOut"></output></label>
+        <input type="range" id="padR" min="0" max="0.2" step="0.01">
+        <p class="fine">Si los cortes se sienten bruscos, súbelo un poco.</p>
+      </div>
+      <button class="btn wide" id="autoBtn">Volver a limpiar automáticamente</button>
+      <p class="fine">Respeta lo que tú o Claude ya decidieron a mano.</p>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="panel" id="logTab" hidden>
+      <div class="claude-tip">
+        <p>Para cortes más finos, pídeselo a Claude en la app de escritorio:</p>
+        <p class="quote">«Edita mi reel en Reel Studio: quita las tomas repetidas y corrige los nombres de marcas»</p>
+        <p class="fine">Sus cambios aparecen aquí solos.</p>
+      </div>
+      <ol class="log" id="log"></ol>
+    </div>
+  </section>
+
+  <footer class="timeline" id="timeline">
+    <div class="tl-track" id="tlTrack">
+      <div class="tl-strip" id="tlStrip"></div>
+      <div class="tl-wave" id="tlWave"></div>
+      <div class="tl-cuts" id="tlCuts"></div>
+      <div class="tl-head" id="tlHead"></div>
+    </div>
+  </footer>
+</div>
+
+<dialog id="exportDlg">
+  <form method="dialog" class="dlg">
+    <h2>Exportar video</h2>
+    <p class="fine" id="expInfo"></p>
+    <div id="expOpts">
+      <div class="field row"><label for="eSubs">Subtítulos quemados en el video</label><input type="checkbox" class="switch" id="eSubs" checked></div>
+      <div class="field row"><label for="eSrt">Archivo .srt aparte</label><input type="checkbox" class="switch" id="eSrt"></div>
+      <div class="field row"><label for="eLoud">Igualar volumen (−14 LUFS, el de Instagram)</label><input type="checkbox" class="switch" id="eLoud" checked></div>
+      <div class="field">
+        <label>Fotogramas por segundo</label>
+        <div class="seg" id="fpsSeg"><button type="button" data-v="24">24</button><button type="button" data-v="30">30</button><button type="button" data-v="60">60</button></div>
+        <p class="fine" id="fpsNote"></p>
+      </div>
+      <div class="field">
+        <label>Resolución</label>
+        <div class="seg" id="resSeg"><button type="button" data-v="0">1080p</button><button type="button" data-v="1">4K</button></div>
+      </div>
+      <div class="field">
+        <label>Calidad</label>
+        <div class="seg" id="qSeg"><button type="button" data-v="maxima">Máxima</button><button type="button" data-v="alta">Alta</button><button type="button" data-v="liviana">Liviana</button></div>
+        <p class="fine" id="qNote"></p>
+      </div>
+      <div class="field">
+        <label>Archivo</label>
+        <div class="seg" id="codecSeg"><button type="button" data-v="h264">MP4 para redes</button><button type="button" data-v="prores">ProRes para editar</button></div>
+        <p class="fine" id="codecNote"></p>
+      </div>
+    </div>
+    <div id="expProg" hidden>
+      <div class="meter"><div id="expBar"></div></div>
+      <p id="expMsg">Renderizando…</p>
+    </div>
+    <div id="expDone" hidden>
+      <p class="ok" id="expDoneMsg"></p>
+    </div>
+    <div class="exports" id="expList"></div>
+    <div class="dlg-actions">
+      <button class="btn ghost" value="close" id="expClose">Cerrar</button>
+      <button class="btn primary" type="button" id="expGo">Exportar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="editDlg">
+  <form method="dialog" class="dlg small">
+    <h2>Corregir subtítulo</h2>
+    <p class="fine">Cambia cómo se escribe en pantalla. El audio no cambia.</p>
+    <input id="editInput" class="textin" autocomplete="off">
+    <div class="dlg-actions">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn primary" value="ok" id="editOk">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

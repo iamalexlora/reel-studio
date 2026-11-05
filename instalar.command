@@ -44,6 +44,27 @@ if [ ! -f "$DEST/config/update.json" ] && [ -f "$SRC/config/update.json" ]; then
   cp "$SRC/config/update.json" "$DEST/config/update.json"
 fi
 [ -f "$SRC/VERSION" ] && [ "$SRC" != "$DEST" ] && cp "$SRC/VERSION" "$DEST/VERSION"
+
+paso "Actualizaciones automáticas"
+if [ -f "$DEST/config/update.json" ] && grep -q '"token": ""' "$DEST/config/update.json"; then
+  echo "Tu repositorio de GitHub es privado: pega aquí el token de solo lectura que creaste"
+  echo "(no se ve mientras lo pegas). Si no lo tienes todavía, solo presiona Enter."
+  read -r -s -p "Token: " TOKEN; echo
+  if [ -n "$TOKEN" ]; then
+    /usr/bin/python3 - "$DEST/config/update.json" "$TOKEN" <<'PYEOF'
+import json, sys
+p, t = sys.argv[1], sys.argv[2].strip()
+c = json.load(open(p)); c["token"] = t
+json.dump(c, open(p, "w"), indent=1)
+PYEOF
+    chmod 600 "$DEST/config/update.json"
+    echo "ok: actualizaciones activadas"
+  else
+    echo "Sin token por ahora: Reel Studio funciona igual, pero no se actualizará solo."
+  fi
+else
+  echo "ok"
+fi
 chmod +x "$DEST"/*.sh "$DEST"/*.command "$DEST/app/reel.py" 2>/dev/null || true
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 

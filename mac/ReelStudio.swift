@@ -152,6 +152,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
             if c["repo"] == nil { c = ["repo": "iamalexlora/reel-studio", "branch": "main", "token": ""] }
             writeJSON(c, cfgFile)
         }
+        // Si la app trae el token incluido (secreto de GitHub al compilar), se usa sin preguntar.
+        var cur = readJSON(cfgFile)
+        let bundledTok = (readJSON(bundled.appendingPathComponent("config/update.json"))["token"] as? String) ?? ""
+        if ((cur["token"] as? String) ?? "").isEmpty && !bundledTok.isEmpty {
+            cur["token"] = bundledTok
+            cur["skipToken"] = false
+            writeJSON(cur, cfgFile)
+        }
         askTokenIfNeeded(cfgFile)
 
         // Primera vez en esta Mac: faltan ffmpeg / Python / modelo de voz.

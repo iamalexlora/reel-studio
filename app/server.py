@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import engine as E
 import updater as U
+_UPD = {"t": 0.0, "r": None}
 
 PORT = int(os.environ.get("REEL_PORT", "8765"))
 STATIC = E.APP_DIR / "static"
@@ -224,7 +225,10 @@ class H(BaseHTTPRequestHandler):
             if parts[0] == "media" and len(parts) >= 3:
                 return self.media(parts, q)
             if parts[:2] == ["api", "update"]:
-                return self.send_json(U.check())
+                now = time.time()
+                if now - _UPD["t"] > 50 or "force" in q:
+                    _UPD.update(t=now, r=U.check())
+                return self.send_json(_UPD["r"])
             if parts[:2] == ["api", "health"]:
                 return self.send_json({"ok": True, "ffmpeg": E.FFMPEG, "engine": engine_name(), "version": 2})
             if parts[:2] == ["api", "meta"]:

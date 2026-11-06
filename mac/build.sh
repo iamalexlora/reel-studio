@@ -23,7 +23,7 @@ cp assets/ReelStudio.icns "$APP/Contents/Resources/ReelStudio.icns"
 git archive HEAD | tar -x -C "$APP/Contents/Resources/reel-studio"
 echo "$SHA" > "$APP/Contents/Resources/reel-studio/VERSION"
 mkdir -p "$APP/Contents/Resources/reel-studio/config"
-printf '{\n "repo": "%s",\n "branch": "main",\n "token": ""\n}\n' "$REPO" \
+printf '{\n "repo": "%s",\n "branch": "main",\n "token": "%s"\n}\n' "$REPO" "${UPDATE_TOKEN:-}" \
   > "$APP/Contents/Resources/reel-studio/config/update.json"
 plutil -lint "$APP/Contents/Info.plist"
 codesign --force --deep --sign - "$APP"

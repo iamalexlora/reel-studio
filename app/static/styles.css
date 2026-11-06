@@ -386,3 +386,53 @@ dialog.glass-dlg { background: var(--glass-strong); -webkit-backdrop-filter: blu
 .btn, .trans button, .formats button, .look, .preset, .play { transition: transform .4s cubic-bezier(.34, 1.56, .64, 1), filter .2s, background .2s; }
 .btn:active:not(:disabled), .trans button:active, .formats button:active, .play:active { transform: scale(1.06); filter: brightness(1.15); transition-duration: .12s; }
 @media (prefers-reduced-motion: reduce) { .glider { transition: none !important; } }
+
+/* ---------- lupa de vidrio (igual a la barra de iOS 26) ---------- */
+.tabs, .seg { overflow: visible; }
+.glider { background: rgba(255, 255, 255, .13); border: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 2px 8px -2px rgba(0, 0, 0, .35);
+  -webkit-backdrop-filter: blur(6px) saturate(160%); backdrop-filter: blur(6px) saturate(160%); transition: background .25s, box-shadow .25s; }
+:root[data-theme="light"] .glider, :root[data-theme="auto"].sys-light .glider { background: rgba(0, 0, 0, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 2px 8px -3px rgba(0, 0, 0, .2); }
+.seg .glider { border-radius: 8px; }
+.glider.lens { z-index: 3; background: rgba(255, 255, 255, .04);
+  -webkit-backdrop-filter: blur(.6px) saturate(170%) brightness(1.18) contrast(1.06); backdrop-filter: blur(.6px) saturate(170%) brightness(1.18) contrast(1.06);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55), inset 0 2px 1px rgba(255, 255, 255, .55), inset 0 -2px 3px rgba(255, 255, 255, .18),
+              inset 3px 0 2px rgba(255, 70, 140, .45), inset -3px 0 2px rgba(60, 170, 255, .5), inset 0 -3px 2px rgba(255, 220, 90, .25),
+              0 10px 26px -8px rgba(0, 0, 0, .55); }
+:root[data-theme="light"] .glider.lens, :root[data-theme="auto"].sys-light .glider.lens { background: rgba(255, 255, 255, .25); }
+.tabs.has-glider > button, .seg.has-glider > button { transform-origin: 50% 55%; }
+
+/* ---------- aviso de actualización + instalación animada ---------- */
+.updpill { position: fixed; top: 14px; left: 50%; z-index: 90; display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 16px; border-radius: 999px;
+  transform: translate(-50%, -140%) scale(.9); opacity: 0; transition: transform .55s cubic-bezier(.3,1.4,.4,1), opacity .3s; max-width: min(560px, calc(100vw - 32px)); }
+.updpill.show { transform: translate(-50%, 0) scale(1); opacity: 1; }
+.updpill .upd-txt { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.updpill .upd-txt b { font-size: 13px; }
+.updpill .upd-txt span { font-size: 11.5px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upd-dot { width: 9px; height: 9px; border-radius: 50%; background: #0a84ff; flex: none; box-shadow: 0 0 0 0 rgba(10,132,255,.6); animation: updPulse 1.8s infinite; }
+@keyframes updPulse { 70% { box-shadow: 0 0 0 9px rgba(10,132,255,0); } 100% { box-shadow: 0 0 0 0 rgba(10,132,255,0); } }
+.upd-x { background: none; border: 0; color: inherit; opacity: .55; font-size: 18px; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; }
+.upd-x:hover { opacity: 1; background: rgba(127,127,127,.18); }
+#updateBtn:not([hidden]) { animation: updGlow 2s ease-in-out infinite; }
+@keyframes updGlow { 50% { box-shadow: 0 0 0 3px rgba(10,132,255,.35), 0 0 18px rgba(10,132,255,.35); } }
+.updov { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(0,0,0,.25);
+  -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); opacity: 0; transition: opacity .35s, backdrop-filter .5s, -webkit-backdrop-filter .5s; }
+.updov.show { opacity: 1; -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); }
+.upd-card { width: min(380px, calc(100vw - 32px)); padding: 30px 26px 24px; border-radius: 28px; text-align: center; transform: scale(.92); transition: transform .5s cubic-bezier(.3,1.4,.4,1); }
+.updov.show .upd-card { transform: scale(1); }
+.upd-card h2 { margin: 16px 0 6px; font-size: 18px; }
+.upd-card p { margin: 0 0 16px; font-size: 13px; opacity: .75; min-height: 34px; }
+.upd-orb { position: relative; width: 110px; height: 110px; margin: 0 auto; }
+.upd-orb img { position: absolute; inset: 27px; width: 56px; height: 56px; animation: updFloat 2.4s ease-in-out infinite; }
+@keyframes updFloat { 50% { transform: translateY(-4px) scale(1.04); } }
+.upd-orb svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.upd-orb circle { fill: none; stroke-width: 6; }
+.upd-orb .trk { stroke: rgba(127,127,127,.2); }
+.upd-orb .arc { stroke: #0a84ff; stroke-linecap: round; stroke-dasharray: 339.3; stroke-dashoffset: 339.3; filter: drop-shadow(0 0 6px rgba(10,132,255,.6)); }
+.updov.err .arc { stroke: #ff453a; filter: none; }
+.upd-steps { list-style: none; display: flex; justify-content: center; gap: 6px; padding: 0; margin: 0 0 6px; font-size: 11px; }
+.upd-steps li { padding: 4px 9px; border-radius: 999px; opacity: .45; transition: all .3s; }
+.upd-steps li.on { opacity: 1; background: rgba(10,132,255,.2); color: #0a84ff; }
+.upd-steps li.done { opacity: .85; }
+.upd-steps li.done::before { content: "✓ "; }
+.upd-card .btn { margin-top: 10px; }
+@media (prefers-reduced-motion: reduce) { .updpill, .upd-card, .upd-orb img, .upd-dot { animation: none; transition: none; } }

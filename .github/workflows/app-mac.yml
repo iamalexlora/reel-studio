@@ -20,6 +20,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Construir la app y el DMG
+        env:
+          UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
         run: bash mac/build.sh
       - name: Publicar en Releases
         env:

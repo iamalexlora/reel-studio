@@ -1331,27 +1331,71 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("hashchange", () => openProject(location.hash.slice(1)));
 window.addEventListener("beforeunload", () => { if (S.dirty) save(); });
 
+/* actualizaciones: se revisan solas y avisan con un botón; un toque y se instala con animación */
+let updInfo = null, updDismissed = "";
 async function checkUpdate() {
-  try { const u = await api("GET", "/api/update"); const b = $("#updateBtn"); b.hidden = !u.available; if (u.available) b.title = u.message ? "Novedad: " + u.message : ""; } catch (_) {}
+  try {
+    const u = await api("GET", "/api/update");
+    updInfo = u.available ? u : null;
+    const b = $("#updateBtn"); b.hidden = !u.available;
+    if (u.available) b.title = u.message ? "Novedad: " + u.message : "";
+    showUpdPill();
+  } catch (_) {}
 }
-$("#updateBtn").addEventListener("click", async () => {
-  const b = $("#updateBtn"); b.disabled = true; b.textContent = "Actualizando…";
+function showUpdPill() {
+  let pill = $("#updPill");
+  if (!updInfo || updDismissed === updInfo.latest || document.body.classList.contains("updating")) { if (pill) pill.classList.remove("show"); return; }
+  if (!pill) {
+    pill = document.createElement("div"); pill.id = "updPill"; pill.className = "updpill glass";
+    pill.innerHTML = '<span class="upd-dot"></span><div class="upd-txt"><b>Hay una versión nueva</b><span id="updMsg"></span></div>' +
+      '<button class="btn primary small" id="updGo">Actualizar</button><button class="upd-x" id="updLater" aria-label="Más tarde">×</button>';
+    document.body.appendChild(pill);
+    $("#updGo").addEventListener("click", runUpdate);
+    $("#updLater").addEventListener("click", () => { updDismissed = updInfo ? updInfo.latest : ""; pill.classList.remove("show"); });
+  }
+  $("#updMsg").textContent = updInfo.message ? updInfo.message.split("\n")[0].slice(0, 90) : "Toca para instalarla en segundos.";
+  requestAnimationFrame(() => pill.classList.add("show"));
+}
+async function runUpdate() {
+  if (document.body.classList.contains("updating")) return;
+  document.body.classList.add("updating"); showUpdPill();
+  const ov = document.createElement("div"); ov.className = "updov";
+  ov.innerHTML = '<div class="upd-card glass"><div class="upd-orb"><img src="/static/logo.svg" alt=""><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" class="trk"/><circle cx="60" cy="60" r="54" class="arc" id="updArc"/></svg></div>' +
+    '<h2>Actualizando Reel Studio</h2><p id="updStep">Guardando tu trabajo…</p><ol class="upd-steps"><li class="on">Guardar</li><li>Descargar</li><li>Instalar</li><li>Abrir</li></ol></div>';
+  document.body.appendChild(ov); requestAnimationFrame(() => ov.classList.add("show"));
+  const arc = ov.querySelector("#updArc"), steps = ov.querySelectorAll(".upd-steps li");
+  let pct = 0, target = 8;
+  const tick = setInterval(() => { pct += (target - pct) * 0.08; arc.style.strokeDashoffset = 339.3 * (1 - pct / 100); }, 30);
+  const step = (i, txt, t) => { steps.forEach((s, k) => { s.classList.toggle("on", k === i); s.classList.toggle("done", k < i); }); $("#updStep").textContent = txt; target = t; };
+  const fail = (msg) => { clearInterval(tick); ov.classList.add("err"); $("#updStep").textContent = msg;
+    const c = document.createElement("button"); c.className = "btn small"; c.textContent = "Cerrar"; ov.querySelector(".upd-card").appendChild(c);
+    c.onclick = () => { ov.remove(); document.body.classList.remove("updating"); showUpdPill(); }; };
   try {
     await flushSave();
+    step(1, "Descargando la versión nueva…", 55);
     const r = await api("POST", "/api/update");
-    if (!r.updated) { b.hidden = true; toast("Ya tienes la última versión."); return; }
-    toast("Listo: " + (r.message || "versión nueva") + ". Reiniciando…", 4000);
-    for (let i = 0; i < 40; i++) { await sleep(500); try { const h = await fetch("/api/health"); if (h.ok) { location.reload(); return; } } catch (_) {} }
-  } catch (e) { toast("No se pudo actualizar: " + e.message, 6000); b.disabled = false; b.textContent = "Actualización disponible"; }
-});
-setInterval(checkUpdate, 30 * 60 * 1000);
+    if (!r.updated) { step(3, "Ya tienes la última versión.", 100); updInfo = null; $("#updateBtn").hidden = true; await sleep(900); ov.remove(); document.body.classList.remove("updating"); return; }
+    step(2, "Instalando" + (r.message ? ": " + r.message.split("\n")[0].slice(0, 70) : "…"), 85);
+    await sleep(600);
+    step(3, "Abriendo la versión nueva…", 96);
+    for (let i = 0; i < 60; i++) {
+      await sleep(400);
+      try { const h = await fetch("/api/health", { cache: "no-store" }); if (h.ok) { target = 100; await sleep(350); location.reload(); return; } } catch (_) {}
+    }
+    fail("La versión nueva se instaló pero tardó en abrir. Cierra y vuelve a abrir Reel Studio.");
+  } catch (e) { fail("No se pudo actualizar: " + e.message); }
+}
+$("#updateBtn").addEventListener("click", runUpdate);
+setInterval(checkUpdate, 3 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
+window.addEventListener("focus", () => checkUpdate());
 $("#checkUpdBtn").addEventListener("click", async () => {
   const b = $("#checkUpdBtn"); b.disabled = true; b.textContent = "Buscando…";
   try {
-    const u = await api("GET", "/api/update");
+    const u = await api("GET", "/api/update?force=1");
     if (!u.configured) toast("Las actualizaciones no están configuradas en esta computadora.", 5000);
     else if (u.error) toast("No pude revisar GitHub: revisa tu internet o el token (menú Reel Studio → Token de GitHub).", 6000);
-    else if (u.available) { $("#updateBtn").hidden = false; $("#updateBtn").click(); }
+    else if (u.available) { updInfo = u; $("#updateBtn").hidden = false; runUpdate(); }
     else toast("Ya tienes la última versión.");
   } catch (e) { toast("No pude buscar actualizaciones: " + e.message, 5000); }
   b.disabled = false; b.textContent = "Buscar actualizaciones";
@@ -1365,7 +1409,7 @@ function placeGlider(box, animate) {
   const key = box.id || (box.closest("[id]") ? box.closest("[id]").id + ":" + box.className : "");
   if (!g) {
     g = document.createElement("span"); g.className = "glider"; box.prepend(g); box.classList.add("has-glider");
-    g._pos = key && gliderMem[key]; animate = !!g._pos;   // el panel se redibujó: continuar desde donde estaba
+    g._pos = key && gliderMem[key]; animate = !!g._pos;
   }
   const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight };
   const from = g._pos;
@@ -1375,17 +1419,39 @@ function placeGlider(box, animate) {
   g.style.transform = `translate(${to.x}px, ${to.y}px)`;
   g._pos = to;
   if (!animate || !from || (from.x === to.x && from.y === to.y && from.w === to.w) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // La cápsula se convierte en una lupa de vidrio más grande que la barra, viaja y vuelve a su tamaño.
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
-  const stretch = 1 + Math.min(0.35, dist / 600);
-  const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2, mw = Math.max(from.w, to.w) * stretch;
+  const dur = Math.min(720, 430 + dist * 0.6);
+  const grow = Math.min(1.5, 1.28 + dist / 1400);
+  const at = (x, y, w, h, sx, sy) => ({ transform: `translate(${x}px, ${y}px) scale(${sx}, ${sy})`, width: w + "px", height: h + "px" });
+  const mw = (from.w + to.w) / 2 * 1.12;
   g.classList.add("lens");
-  const a = g.animate([
-    { transform: `translate(${from.x}px, ${from.y}px) scale(1)`, width: from.w + "px", height: from.h + "px" },
-    { transform: `translate(${mx - (mw - (from.w + to.w) / 2) / 2}px, ${my}px) scale(1.08, 1.18)`, width: mw + "px", height: Math.max(from.h, to.h) + "px", offset: 0.45 },
-    { transform: `translate(${to.x}px, ${to.y}px) scale(1.04, .96)`, width: to.w + "px", height: to.h + "px", offset: 0.8 },
-    { transform: `translate(${to.x}px, ${to.y}px) scale(1)`, width: to.w + "px", height: to.h + "px" },
-  ], { duration: 520, easing: "cubic-bezier(.3, .7, .2, 1)" });
-  a.onfinish = () => g.classList.remove("lens");
+  if (g._anim) g._anim.cancel();
+  const a = g._anim = g.animate([
+    at(from.x, from.y, from.w, from.h, 1, 1),
+    { ...at(from.x, from.y, from.w, from.h, 1.12, grow), offset: 0.14 },
+    { ...at((from.x + to.x) / 2 + ((from.w + to.w) / 2 - mw) / 2, (from.y + to.y) / 2, mw, Math.max(from.h, to.h), 1.16, grow * 0.96), offset: 0.5 },
+    { ...at(to.x, to.y, to.w, to.h, 1.12, grow), offset: 0.8 },
+    { ...at(to.x, to.y, to.w, to.h, 0.97, 1.03), offset: 0.92 },
+    at(to.x, to.y, to.w, to.h, 1, 1),
+  ], { duration: dur, easing: "cubic-bezier(.32, .72, .25, 1)" });
+  // efecto lupa: las opciones por donde pasa se agrandan
+  const btns = Array.from(box.querySelectorAll(":scope > button"));
+  const bRect = box.getBoundingClientRect();
+  const loop = () => {
+    if (a.playState === "finished" || a.playState === "idle") { btns.forEach((b) => (b.style.transform = "")); return; }
+    const r = g.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    for (const b of btns) {
+      const br = b.getBoundingClientRect();
+      const dx = Math.abs(br.left + br.width / 2 - cx) / Math.max(40, r.width * 0.75), dy = Math.abs(br.top + br.height / 2 - cy) / Math.max(20, r.height);
+      const f = Math.max(0, 1 - Math.hypot(dx, dy));
+      b.style.transform = f > 0 ? `scale(${1 + 0.16 * f})` : "";
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+  a.onfinish = () => { g.classList.remove("lens"); btns.forEach((b) => (b.style.transform = "")); };
+  void bRect;
 }
 let gliderQueued = false, gliderAnimate = false;
 const gliderMem = {};

@@ -607,3 +607,8 @@ body.resizing iframe { pointer-events: none; }
 .ccbtn span { font-weight: 500; }
 .ccbtn.on { color: #fff; background: var(--accent); border-color: transparent; }
 .subsrow { padding: 10px 12px; border-radius: 12px; background: var(--field); margin: 0 0 10px; }
+
+/* acciones al pie del panel derecho */
+.inspector .panels { flex: 1; min-height: 0; }
+.insp-foot { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 14px 14px; border-top: 1px solid var(--line); }
+.insp-foot .btn { justify-content: center; padding: 11px 12px; font-size: 14px; }

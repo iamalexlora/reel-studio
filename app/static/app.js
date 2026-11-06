@@ -2099,6 +2099,10 @@ async function showNews(onlyIfNew) {
 window.rsNews = () => showNews(false);
 $("#newsBtn").addEventListener("click", () => showNews(false));
 setTimeout(() => showNews(true), 3200);
+/* sin zoom del programa: ni con los dedos en el trackpad, ni con ⌘+/⌘−, ni con Ctrl+rueda */
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+window.addEventListener("wheel", (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+window.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && ["+", "=", "-", "_", "0"].includes(e.key)) e.preventDefault(); }, true);
 window.__t0 = performance.now();
 // El logo y el sonido arrancan juntos: la animación espera a que el audio esté listo (máximo 0,8 s)
 (function startSplash() {

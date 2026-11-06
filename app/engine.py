@@ -1455,16 +1455,51 @@ def auto_assemble(p: dict) -> str:
         return f"Uní {len(speech)} clips con voz."
     pl = plan(p)
     main = pl["total"] - pl["mainStart"]
+    # Las tomas de apoyo tapan los cortes dentro de un mismo video (así no se nota el salto)
+    cuts = [c0 - pl["mainStart"] for c0 in jump_cuts(pl)]
+    used_at, end_prev, k = [], -9.0, 0
+    uses = {c["id"]: 0 for c in other}
+    for cut in cuts:
+        if cut - end_prev < 0.6 or cut < 0.8 or cut > main - 0.8:
+            continue
+        c = other[k % len(other)]; k += 1
+        dur = round(min(max(1.4, pace * 0.8), c["duration"] - 0.3, 3.0), 2)
+        if dur < 0.8:
+            continue
+        at = max(end_prev + 0.1, cut - dur * 0.45)
+        src_in = round((uses[c["id"]] * (dur + 0.3)) % max(0.1, c["duration"] - dur), 2)
+        uses[c["id"]] += 1
+        p["broll"].append({"id": uuid.uuid4().hex[:6], "clip": c["id"], "at": round(at, 2), "dur": dur, "srcIn": src_in})
+        end_prev = at + dur
+        used_at.append(at)
+    # si sobran tomas de apoyo, se reparten en los tramos largos sin cortes
     gap = max(3.5, (main - 2.5) / (len(other) + 1))
     t = 2.5
     for c in other:
+        if uses[c["id"]]:
+            continue
         dur = round(min(max(1.2, pace), c["duration"] - 0.4, 4.0), 2)
+        while t + dur < main - 0.8 and any(abs(t - u) < 3 for u in used_at):
+            t += 1.0
         if dur < 0.8 or t + dur > main - 0.8:
             continue
         p["broll"].append({"id": uuid.uuid4().hex[:6], "clip": c["id"], "at": round(t, 2), "dur": dur,
                            "srcIn": round(min(0.4, c["duration"] * 0.1), 2)})
-        t += gap
-    return f"Uní {len(speech)} clips con voz y puse {len(p['broll'])} tomas de apoyo encima."
+        used_at.append(t); t += gap
+    p["broll"].sort(key=lambda b: b["at"])
+    return f"Uní {len(speech)} clips con voz y puse {len(p['broll'])} tomas de apoyo, tapando los cortes."
+
+
+def jump_cuts(pl: dict) -> list[float]:
+    """Momentos (en el video final) donde un mismo clip salta de una parte a otra."""
+    out = []
+    for it in pl["items"]:
+        if it.get("kind") == "clip" and len(it.get("segs") or []) > 1:
+            acc = 0.0
+            for a, b in it["segs"][:-1]:
+                acc += b - a
+                out.append(it["start"] + acc)
+    return out
 
 
 # ---------------------------------------------------------------- color
@@ -1556,8 +1591,21 @@ def render_piece(p: dict, segs, c: dict, ctx: dict, out: Path, with_audio: bool)
     sel = "+".join(f"between(t,{a:.4f},{b - 0.0005:.4f})" for a, b in segs)
     dur = sum(b - a for a, b in segs)
     work_fmt = "yuv420p10le" if hdr_out else "yuv420p"
-    v = f"[0:v]setpts=PTS-STARTPTS,fps={fps},select='{sel}',setpts=N/{fps}/TB,"
-    v += framing_chain(c, p["settings"], geo, hdr_out)
+    punch = with_audio and len(segs) > 1 and p["settings"].get("punchIn", True)
+    fr = framing_chain(c, p["settings"], geo, hdr_out)
+    if punch:
+        # cortes dentro del mismo video: cada tramo alterna un acercamiento leve (como hacen los editores)
+        n, z = len(segs), 1.12
+        W, H = geo["W"], geo["H"]
+        zw, zh = int(round(W * z / 2) * 2), int(round(H * z / 2) * 2)
+        parts = [f"[0:v]setpts=PTS-STARTPTS,fps={fps},split={n}" + "".join(f"[vs{i}]" for i in range(n))]
+        for i, (a, b) in enumerate(segs):
+            zz = f",scale={zw}:{zh},crop={W}:{H},setsar=1" if i % 2 else ",setsar=1"
+            parts.append(f"[vs{i}]trim=start={a:.4f}:end={b:.4f},setpts=PTS-STARTPTS,{fr}{zz}[vt{i}]")
+        parts.append("".join(f"[vt{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0,setpts=N/{fps}/TB[vcat]")
+        v = ";".join(parts) + ";[vcat]null"
+    else:
+        v = f"[0:v]setpts=PTS-STARTPTS,fps={fps},select='{sel}',setpts=N/{fps}/TB," + fr
     if not hdr_out:
         gf = grade_filters(p, c, sdr_from_hdr=bool(c.get("hdr")))
         if gf:
@@ -1668,7 +1716,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     tmp_out = out_file.with_name(out_file.stem + ".tmp" + out_file.suffix)
 
     # 1. Piezas (caché: si nada cambió en un clip, no se vuelve a renderizar)
-    base_key = [geo, fps, hdr, preview, st.get("fit"), st.get("cropX"), st.get("cropY"), st.get("grade"), 3]
+    base_key = [geo, fps, hdr, preview, st.get("fit"), st.get("cropX"), st.get("cropY"), st.get("grade"), st.get("punchIn", True), 4]
     broll_jobs = []
     for b in p["broll"]:
         c = clip_by_id(p, b["clip"])

@@ -557,6 +557,18 @@ function clipTimeAt(itm, local) {
   }
   return 0;
 }
+/* cortes dentro de un mismo video: acercamiento leve alternado (igual que en el render) */
+function applyPunch(t) {
+  const on = !S.useRender && S.P && S.P.settings.punchIn !== false;
+  let z = "";
+  const cur = S.cur;
+  if (on && cur && cur.itm.kind === "clip" && cur.itm.segs.length > 1 && !transAt(t)) {
+    const local = t - cur.itm.start; let idx = 0;
+    for (let k = 0; k < cur.itm.segs.length; k++) if (local >= cur.itm.cum[k] - 0.001) idx = k;
+    if (idx % 2) z = "1.12";
+  }
+  [vA, vB].forEach((v) => { const want = v === activeVideo() ? z : ""; if (v.style.scale !== want) v.style.scale = want; });
+}
 function resetTrans(el) { el.style.opacity = ""; el.style.transform = ""; el.style.zIndex = ""; el.dataset.fx = ""; }
 function applyTransition(t) {
   const fade = $("#fadeLayer"), card = $("#cardImg");
@@ -721,6 +733,7 @@ function drawFrame() {
     if (pos.startsWith("arriba")) img.style.top = (tall ? G.top * 0.5 * k : mg) + "px"; else img.style.bottom = (tall ? G.bottom * 0.45 * k : mg) + "px";
   } else img.style.display = "none";
   applyTransition(t);
+  applyPunch(t);
   drawAnims(t, G, k);
   drawCaption(t, G, k);
 }
@@ -1368,12 +1381,14 @@ function renderFormato() {
   const fm = Object.entries(S.meta.formats).map(([k, f]) => `<button data-f="${k}" class="${s.format === k ? "on" : ""}"><i style="width:${Math.round(24 * f.w / f.h)}px"></i><b>${fmtShort(k)}</b><span>${desc[k]}</span></button>`).join("");
   const G = geom(), mixed = P.clips.some((c) => c.width && Math.abs(c.width / c.height - G.W / G.H) > 0.01);
   box.innerHTML = `<div class="sec"><h3>Duración máxima</h3>${maxDurSeg("maxSeg", s.maxDur)}<p class="fine">Si el video queda más largo, se recorta al final (la intro y el cierre se respetan).</p></div>
+    <div class="sec"><div class="row-f"><label for="punchOn"><b>Acercamiento en los cortes</b><span class="fine" style="display:block;margin:0">Cuando se corta dentro de un mismo video, alterna un zoom leve para que el salto se vea intencional.</span></label><input type="checkbox" class="switch" id="punchOn" ${s.punchIn !== false ? "checked" : ""}></div></div>
     <div class="sec"><h3>Formato del video</h3><div class="formats" id="fmtGrid">${fm}</div>
       <p class="fine">La resolución (720p, 1080p, 2K o 4K) y los fotogramas (24, 30 o 60) se eligen al exportar.</p></div>
     ${mixed ? `<div class="sec"><h3>Clips con otra forma</h3><div class="field"><label>Cómo encajan</label><div class="seg" id="fitSeg"><button data-v="llenar" class="${s.fit === "llenar" ? "on" : ""}">Recortar</button><button data-v="difuminado" class="${s.fit === "difuminado" ? "on" : ""}">Fondo difuminado</button></div></div>
       ${slider("cxR", "Mover el encuadre (horizontal)", s.cropX, 0, 1, 0.01, Math.round(s.cropX * 100) + " %")}${slider("cyR", "Mover el encuadre (vertical)", s.cropY, 0, 1, 0.01, Math.round(s.cropY * 100) + " %")}
       <p class="fine">Cada clip puede tener su propio encuadre en la pestaña Clips.</p></div>` : ""}
     <div class="sec"><h3>Tus clips</h3>${P.clips.map((c) => `<p class="fine">«${esc(c.name)}»: ${c.width || "?"}×${c.height || "?"} · ${c.fps ? Math.round(c.fps) : "?"} fps${c.hdr ? " · HDR" : ""}</p>`).join("") || '<p class="fine">Sin clips todavía.</p>'}</div>`;
+  $("#punchOn").onchange = (e) => { pushHistory(); s.punchIn = e.target.checked; changed(); };
   $("#fmtGrid").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.format = b.dataset.f; changed(); sizeScreen(); seek(S.outT); };
   if ($("#fitSeg")) $("#fitSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.fit = b.dataset.v; changed(); seek(S.outT); };
   bindRange("cxR", (v) => { s.cropX = v; seek(S.outT); }, (v) => Math.round(v * 100) + " %");

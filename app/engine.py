@@ -878,6 +878,11 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
                       "dur": round(float(st["outro"].get("dur", 2.5)) * fps) / fps})
     # Duración máxima elegida por el usuario: recorta los clips (intro y cierre se respetan)
     maxd = float(st.get("maxDur") or 0)
+    voz = st.get("voice") or {}
+    vdur = float(voz.get("duration") or 0) if voz.get("file") else 0
+    if vdur:
+        fit = vdur + 0.4 + sum(i["dur"] for i in items if i["kind"] == "card")
+        maxd = min(maxd, fit) if maxd > 0 else fit
     if maxd > 0:
         budget = maxd - sum(i["dur"] for i in items if i["kind"] == "card")
         keep = []
@@ -922,7 +927,7 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
     main0 = 0.0
     if items and items[0]["kind"] == "card":
         main0 = items[1]["start"] if len(items) > 1 else items[0]["dur"]
-    return {"items": items, "total": round(total, 3), "fps": fps, "mainStart": round(main0, 4)}
+    return {"items": items, "total": round(total, 3), "fps": fps, "mainStart": round(main0, 4), "voiceDur": vdur}
 
 
 def output_duration(p: dict) -> float:
@@ -940,7 +945,13 @@ def word_mapper(pl: dict):
             f, _ = time_mapper(itm["segs"])
             maps.append((itm, f))
 
+    voz_dur = pl.get("voiceDur") or 0
+
     def m(clip, t0, t1):
+        if clip == "voz":
+            if voz_dur and t0 < voz_dur:
+                return pl["mainStart"] + t0, pl["mainStart"] + min(t1, voz_dur)
+            return None
         for itm, f in maps:
             if itm["clip"] != clip:
                 continue
@@ -1805,9 +1816,24 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
             ag.append(f"{cur}[{j}:a]concat=n=2:v=0:a=1{lab}")
         cur = lab
     has_voice = any(itm.get("speech") for itm in items)
+    voz = st.get("voice") or {}
+    voz_path = d / voz["file"] if voz.get("file") else None
+    if voz_path and voz_path.exists():
+        vi = len(piece_files) + (1 if music_path else 0)
+        ms0 = int(pl["mainStart"] * 1000)
+        ag.append(f"[{vi}:a]aresample=48000,aformat=channel_layouts=stereo,volume={float(voz.get('gain', 0)):.1f}dB,"
+                  f"adelay={ms0}|{ms0},apad,atrim=end={total:.4f}[vzx]")
+        ag.append(f"{cur}[vzx]amix=inputs=2:duration=first:normalize=0[vzm]")
+        cur = "[vzm]"
+        has_voice = True
+    else:
+        voz_path = None
     if music_path:
         mi = len(piece_files)
         acmd += ["-stream_loop", "-1", "-i", str(music_path)]
+    if voz_path:
+        acmd += ["-i", str(voz_path)]
+    if music_path:
         vol = float(mus.get("volume", 0.35))
         fi, fo = float(mus.get("fadeIn", 1)), float(mus.get("fadeOut", 2))
         mchain = (f"[{mi}:a]aresample=48000,aformat=channel_layouts=stereo,"
@@ -1838,7 +1864,8 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
 
     # 3. Subtítulos
     cap_track = None
-    if opts.get("subtitles", st.get("subtitles", True)) and any(i.get("speech") for i in items):
+    if opts.get("subtitles", st.get("subtitles", True)) and (any(i.get("speech") for i in items)
+                                                             or any(w.get("clip") == "voz" for w in p.get("words", []))):
         progress(0.62, "Dibujando subtítulos…")
         cap_track = build_caption_track(p, pl, work, geo, fps, hdr)
 

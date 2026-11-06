@@ -620,7 +620,7 @@ function seek(t) {
   const loc = locate(S.outT);
   show(loc);
   if (loc && loc.itm.kind === "card") S.cardClock = { out: S.outT, perf: performance.now() };
-  syncMusic(true); S.capKey = null; drawFrame();
+  syncMusic(true); syncVoice(true); S.capKey = null; drawFrame();
   $("#tcNow").textContent = fmt(S.outT);
 }
 function play() {
@@ -631,11 +631,11 @@ function play() {
   const loc = locate(S.outT); show(loc);
   if (loc.itm.kind === "card") S.cardClock = { out: S.outT, perf: performance.now() };
   else activeVideo().play().catch(() => {});
-  syncMusic(true);
+  syncMusic(true); syncVoice(true);
 }
 function stop() {
   S.playing = false; setPlayIcon();
-  [vA, vB, vBr].forEach((v) => v.pause()); music.pause();
+  [vA, vB, vBr].forEach((v) => v.pause()); music.pause(); voiceEl.pause();
 }
 function togglePlay() { S.playing ? stop() : play(); }
 function setPlayIcon() {
@@ -661,6 +661,17 @@ function syncMusic(force) {
   if (S.playing && music.paused) music.play().catch(() => {});
   if (!S.playing) music.pause();
 }
+const voiceEl = new Audio();
+function syncVoice(force) {
+  const vz = S.P && S.P.settings.voice;
+  if (!vz || !vz.file || S.useRender || !S.plan) { voiceEl.pause(); return; }
+  const want = `/media/${S.P.id}/voice?f=${encodeURIComponent(vz.file)}`;
+  if (voiceEl.dataset.src !== want) { voiceEl.dataset.src = want; voiceEl.src = want; }
+  const t = S.outT - S.plan.mainStart, inside = t >= 0 && t < (vz.duration || 0);
+  if (inside && (force || Math.abs(voiceEl.currentTime - t) > 0.25)) { try { voiceEl.currentTime = t; } catch (_) {} }
+  if (S.playing && inside && voiceEl.paused) voiceEl.play().catch(() => {});
+  if (!S.playing || !inside) voiceEl.pause();
+}
 function tick() {
   if (S.P && S.plan && S.plan.items.length) {
     if (S.useRender) {
@@ -681,7 +692,7 @@ function tick() {
       }
       if (nxt && S.outT >= nxt.start) { show(locate(S.outT + 0.001)); if (S.cur.itm.kind === "card") S.cardClock = { out: S.outT, perf: performance.now() }; }
       else if (!nxt && S.outT >= itm.start + itm.dur - 0.02) { stop(); S.outT = S.plan.total; }
-      syncMusic(false);
+      syncMusic(false); syncVoice(false);
     }
     $("#tcNow").textContent = fmt(S.outT);
     $("#tlHead").style.left = (74 + S.outT * (S.pps || 1)) + "px";
@@ -1978,6 +1989,15 @@ function renderGuide() {
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
   if (P && $("#gMax") && !$("#gMax").querySelector("input")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
   if (P) $("#gAutoT").checked = !!P.settings.autoTranscribe;
+  if (P) {
+    const va = S.make.videoAudio !== false;
+    $$("#gVA button").forEach((b) => b.classList.toggle("on", (b.dataset.v === "1") === va));
+    const vz = P.settings.voice || {}, mu = P.settings.music || {};
+    $("#gVoiceName").innerHTML = vz.file ? `✓ ${esc(vz.name)} · ${fmt(vz.duration || 0)}${vz.status === "transcribiendo" ? " · transcribiendo…" : ""} <a href="#" id="gVoiceDel">quitar</a>` : "El video se arma sobre tu voz y dura lo mismo.";
+    $("#gMusicName").innerHTML = mu.file ? `✓ ${esc(mu.name)}${mu.tempo ? ` · ${Math.round(mu.tempo)} BPM` : ""} <a href="#" id="gMusicDel">quitar</a>` : "Los cortes siguen el ritmo.";
+    $("#gVAnote").textContent = va ? "Se usa su voz para subtítulos y cortes." : (vz.file ? "Solo se oye tu narración (y la música)." : "Sin voz: no se transcribe ni se ponen subtítulos.");
+    if (!va && !vz.file) { $("#gSubs").checked = false; }
+  }
   if (P && !S._gSubsInit) { $("#gSubs").checked = P.settings.subtitles !== false; S._gSubsInit = true; }
   const ready = !!(P && P.clips.length);
   $("#gGo").disabled = !ready;
@@ -2000,6 +2020,21 @@ $("#gChips").addEventListener("click", (e) => {
   const t = $("#gPrompt"), add = b.textContent.toLowerCase();
   t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus();
 });
+$("#gVA").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.make.videoAudio = b.dataset.v === "1"; if (S.make.videoAudio) $("#gSubs").checked = true; renderGuide(); });
+async function addVoice(file) {
+  if (!S.P) { const id = await newProject("Mi video"); if (!id) return; }
+  S.uploading = true; $("#jobChip").hidden = false;
+  try { await upload(`/api/projects/${S.P.id}/voice?filename=${encodeURIComponent(file.name)}`, file, (x) => ($("#jobText").textContent = `Copiando narración ${Math.round(x * 100)} %`)); }
+  catch (e) { S.uploading = false; return toast(e.message, 5000); }
+  S.uploading = false; $("#gSubs").checked = true; toast("Narración agregada. La estoy transcribiendo para los subtítulos.");
+  await openProject(S.P.id);
+}
+$("#gVoiceFile").addEventListener("change", (e) => { if (e.target.files[0]) addVoice(e.target.files[0]); e.target.value = ""; });
+$("#gMusicFile").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; if (!S.P) { const id = await newProject("Mi video"); if (!id) return; } await addMusic(f); setTimeout(() => openProject(S.P.id), 1500); });
+document.addEventListener("click", async (e) => {
+  const v = e.target.closest("#gVoiceDel"), m = e.target.closest("#gMusicDel"); if (!v && !m) return;
+  e.preventDefault(); await api("DELETE", `/api/projects/${S.P.id}/${v ? "voice" : "music"}`); await openProject(S.P.id);
+});
 $("#gAutoT").addEventListener("change", (e) => { if (S.P) { S.P.settings.autoTranscribe = e.target.checked; scheduleSave(); } });
 async function transcribeNow(cid) {
   if (!S.P) return; await flushSave();
@@ -2015,7 +2050,7 @@ $("#gGo").addEventListener("click", async () => {
   }
   const fmtB = $("#gFmt button.on");
   runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,
-    maxDur: S.P.settings.maxDur || 0,
+    maxDur: S.P.settings.maxDur || 0, videoAudio: S.make.videoAudio !== false,
     clean: true, subtitles: $("#gSubs").checked, anims: $("#gAnims").checked, highlight: true, prompt });
   $("#gPrompt").value = "";
 });

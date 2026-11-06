@@ -153,6 +153,34 @@ def start_music(pid: str, dest: Path, name: str) -> dict:
     return run_job(j, work)
 
 
+def start_voice(pid: str, dest: Path, name: str) -> dict:
+    """Narración (voz en off): se transcribe para los subtítulos y el video dura lo que ella."""
+    j = new_job("voice", pid, "narración")
+
+    def work(prog):
+        info = E.probe(dest)
+        dur = float(info.get("duration") or 0)
+        E.update(pid, lambda p: p["settings"].update(voice={"file": dest.name, "name": name, "duration": round(dur, 3), "gain": 0, "status": "transcribiendo"}))
+        try:
+            with HEAVY:
+                prog(0.05, "Transcribiendo la narración…")
+                words, _ = E.transcribe_file(dest, dur, prog)
+        except Exception:
+            words = []  # sin transcripción igual sirve: el video se arma sobre la voz, solo sin subtítulos
+
+        def ap(p):
+            p["words"] = [w for w in p["words"] if w.get("clip") != "voz"]
+            for w in words:
+                w["clip"] = "voz"
+            p["words"] += words
+            E.renumber(p)
+            p["settings"]["voice"]["status"] = "listo"
+            E.add_log(p, "auto", f"Narración «{name}»: {dur:.1f} s, {len(words)} palabras.")
+        E.update(pid, ap)
+        return {"words": len(words), "duration": dur}
+    return run_job(j, work)
+
+
 def start_reference(pid: str, dest: Path, name: str) -> dict:
     E.update(pid, lambda p: p.update(reference={"file": dest.name, "name": name, "analysis": None,
                                                 "prompt": (p.get("reference") or {}).get("prompt", "")}))
@@ -263,7 +291,9 @@ def make_video(pid: str, o: dict) -> dict:
 
     def work(prog):
         prog(0.02, "Esperando que terminen de procesarse tus clips…")
-        need_t = bool(o.get("subtitles", True) or o.get("clean", True))
+        if o.get("videoAudio") is False:  # sin el audio de los videos no hay nada que transcribir ni limpiar
+            o["clean"] = False
+        need_t = o.get("videoAudio") is not False and bool(o.get("subtitles", True) or o.get("clean", True))
         if need_t:
             for _ in range(600):  # que primero terminen de prepararse, luego transcribir lo pendiente
                 q = E.load(pid)
@@ -276,6 +306,8 @@ def make_video(pid: str, o: dict) -> dict:
         for _ in range(1800):
             p = E.load(pid)
             busy = [c for c in p["clips"] if c.get("status") not in (("listo", "sin voz") if need_t else READY)]
+            if (p["settings"].get("voice") or {}).get("status") == "transcribiendo":
+                busy = busy or [{"voz": 1}]
             ref = p.get("reference") or {}
             if ref.get("file") and not ref.get("analysis") and any(
                     j0["kind"] == "reference" and j0["project"] == pid and j0["status"] == "running" for j0 in JOBS.values()):
@@ -295,6 +327,9 @@ def make_video(pid: str, o: dict) -> dict:
                 st["format"] = o["format"]
             q["guide"] = False
             st["pace"] = vibe["pace"]
+            if o.get("videoAudio") is not None:
+                for cc in q["clips"]:
+                    cc["muted"] = not o.get("videoAudio")
             if o.get("maxDur") is not None:
                 st["maxDur"] = max(0, int(o.get("maxDur") or 0))
             st["subtitles"] = bool(o.get("subtitles", True))
@@ -309,6 +344,20 @@ def make_video(pid: str, o: dict) -> dict:
             if o.get("clean", True):
                 E.autoclean(q)
             msg = E.auto_assemble(q)
+            vz = q["settings"].get("voice") or {}
+            if vz.get("file") and vz.get("duration"):
+                # con narración: todos los videos en montaje, repetidos si hace falta, hasta cubrir la voz
+                ready = [c for c in q["clips"] if c.get("hasVideo", True) and c.get("status") in READY]
+                tl, tot, k = [], 0.0, 0
+                while ready and tot < vz["duration"] + 1.5 + len(tl) * vibe["tdur"] and k < 300:
+                    c = ready[k % len(ready)]
+                    rnd = k // len(ready)
+                    seg = min(c["duration"], max(1.5, vibe["pace"] * 1.2))
+                    a0 = round((rnd * seg) % max(0.01, c["duration"] - seg), 2)
+                    tl.append({"clip": c["id"], "in": a0, "out": round(min(c["duration"], a0 + seg), 2)})
+                    tot += seg; k += 1
+                q["timeline"], q["broll"] = tl, []
+                msg = f"Armé {len(tl)} tomas sobre tu narración de {vz['duration']:.0f} s."
             for itm in q["timeline"][1:]:
                 itm.pop("trans", None)
             E.add_log(q, "auto", f"Hacer mi video ({vibe['label']}): {msg}")
@@ -516,6 +565,9 @@ class H(BaseHTTPRequestHandler):
             p = E.load(pid)
             c = p["clips"][0]
             return self.send_file(E.clip_path(p, c))
+        if kind == "voice" and len(parts) == 3:
+            f = (E.load(pid)["settings"].get("voice") or {}).get("file")
+            return self.send_file(d / f) if f else self.send_json({"error": "no hay"}, 404)
         if kind in ("music", "reference") and len(parts) == 3:
             p = E.load(pid)
             f = p["settings"]["music"].get("file") if kind == "music" else (p.get("reference") or {}).get("file")
@@ -631,6 +683,17 @@ class H(BaseHTTPRequestHandler):
             dest = d / f"musica{ext}"
             receive(self, dest)
             return self.send_json(start_music(pid, dest, Path(fn).stem))
+        if action == "voice":
+            fn = (q.get("filename") or ["narracion.m4a"])[0]
+            ext = Path(fn).suffix.lower()
+            if ext not in E.AUDIO_EXT + E.VIDEO_EXT:
+                return self.send_json({"error": "Usa un archivo de audio (MP3, WAV, M4A)."}, 400)
+            d = E.project_dir(pid)
+            for old in d.glob("narracion.*"):
+                old.unlink()
+            dest = d / f"narracion{ext}"
+            receive(self, dest)
+            return self.send_json(start_voice(pid, dest, Path(fn).stem))
         if action == "reference":
             fn = (q.get("filename") or ["referencia.mp4"])[0]
             ext = Path(fn).suffix.lower()
@@ -781,9 +844,12 @@ class H(BaseHTTPRequestHandler):
                 return self.send_json({"ok": True})
             if parts[:2] == ["api", "projects"] and len(parts) == 5 and parts[3] == "clips":
                 return self.send_json(E.update(parts[2], lambda p: E.remove_clip(p, parts[4])))
-            if parts[:2] == ["api", "projects"] and len(parts) == 4 and parts[3] in ("music", "reference"):
+            if parts[:2] == ["api", "projects"] and len(parts) == 4 and parts[3] in ("music", "reference", "voice"):
                 def fn(p):
-                    if parts[3] == "music":
+                    if parts[3] == "voice":
+                        p["settings"]["voice"] = {}
+                        p["words"] = [w for w in p["words"] if w.get("clip") != "voz"]
+                    elif parts[3] == "music":
                         p["settings"]["music"].update(file="", name="", beats=[], tempo=0, beatSync=False)
                     else:
                         p["reference"] = None

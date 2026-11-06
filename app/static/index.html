@@ -90,6 +90,14 @@
                 <div class="dz-btns"><label class="btn primary"><input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>Elegir videos</label>
                   <button class="btn" type="button" data-link="clip">Pegar enlace</button></div>
                 <div class="gclips" id="gClips"></div>
+                <div class="gaudio">
+                  <div class="ga"><b>Audio de los videos</b><div class="seg" id="gVA"><button type="button" data-v="1" class="on">Usarlo</button><button type="button" data-v="0">Quitarlo</button></div>
+                    <span class="fine" id="gVAnote">Se usa su voz para subtítulos y cortes.</span></div>
+                  <div class="ga"><b>Narración <em>voz en off</em></b><label class="btn small"><input type="file" id="gVoiceFile" accept="audio/*,.mp3,.wav,.m4a,.aac" hidden>Subir narración</label>
+                    <span class="fine" id="gVoiceName">El video se arma sobre tu voz y dura lo mismo.</span></div>
+                  <div class="ga"><b>Música de base</b><label class="btn small"><input type="file" id="gMusicFile" accept="audio/*,.mp3,.wav,.m4a,.aac" hidden>Subir música</label>
+                    <span class="fine" id="gMusicName">Los cortes siguen el ritmo.</span></div>
+                </div>
                 <div class="row-f"><label for="gAutoT">Transcribir al subir<span class="fine" style="display:block;margin:0">Si lo apagas, se transcribe recién al tocar «Hacer mi video» o cuando tú quieras.</span></label><input type="checkbox" class="switch" id="gAutoT"></div></section>
               <section class="step"><i>2</i><h3>Estilo</h3>
                 <div class="vibes compact" id="gVibe"></div></section>

@@ -1512,6 +1512,7 @@ QUALITY = {
     "alta":    ("medium", 18, "256k", 0.15),
     "liviana": ("veryfast", 22, "192k", 0.08),
     "borrador": ("ultrafast", 30, "128k", 0.05),
+    "vista": ("veryfast", 19, "160k", 0.12),
 }
 
 
@@ -1543,9 +1544,9 @@ def framing_chain(c: dict, st: dict, geo: dict, hdr: bool) -> str:
 
 def _enc_piece(fmt10: bool, draft: bool) -> list[str]:
     if has_encoder("libx264"):
-        e = ["-c:v", "libx264", "-preset", "ultrafast" if draft else "veryfast", "-crf", "28" if draft else "12"]
+        e = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "17" if draft else "12"]
         return e + (["-profile:v", "high10", "-pix_fmt", "yuv420p10le"] if fmt10 else ["-pix_fmt", "yuv420p"])
-    return ["-c:v", "h264_videotoolbox", "-b:v", "8M" if draft else "60M", "-pix_fmt", "yuv420p"]
+    return ["-c:v", "h264_videotoolbox", "-b:v", "24M" if draft else "60M", "-pix_fmt", "yuv420p"]
 
 
 def render_piece(p: dict, segs, c: dict, ctx: dict, out: Path, with_audio: bool):
@@ -1625,12 +1626,12 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     st = p["settings"]
     res = int(opts.get("res") or (2160 if opts.get("uhd") else 1080))
     if preview:
-        res = 540
+        res = 1080  # vista previa nítida (antes 540): en la M4 sigue siendo rápida
     geo = geometry(fmt, res)
     fps = pick_fps(p, opts.get("fps", "auto"))
     if preview:
         fps = min(fps, 30)
-    q = "borrador" if preview else (opts.get("quality") if opts.get("quality") in QUALITY else "alta")
+    q = "vista" if preview else (opts.get("quality") if opts.get("quality") in QUALITY else "alta")
     preset, crf, abr, bpp = QUALITY[q]
     codec = "h264" if preview else opts.get("codec", "h264")
     used = [clip_by_id(p, it["clip"]) for it in p["timeline"]] + [clip_by_id(p, b["clip"]) for b in p["broll"]]

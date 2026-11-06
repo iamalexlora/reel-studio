@@ -1326,14 +1326,15 @@ const MAXDUR = [[0, "Sin límite"], [15, "15 s"], [30, "30 s"], [45, "45 s"], [6
 const fmtDur = (v) => (+v ? (v >= 60 ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")} min` : `${v} s`) : "Sin límite");
 function maxDurSeg(id, cur) {
   cur = +cur || 0;
-  return `<div class="maxdur" id="${id}"><div class="md-top"><b class="md-val">${fmtDur(cur)}</b><span class="fine">Arrastra o toca un tiempo</span></div>
+  return `<div class="maxdur" id="${id}"><div class="md-top"><b class="md-val">${fmtDur(cur)}</b><label class="md-type">Escribe: <input class="md-in textin" inputmode="numeric" placeholder="m:ss" value="${cur ? Math.floor(cur / 60) + ":" + String(cur % 60).padStart(2, "0") : ""}" aria-label="Escribir la duración, por ejemplo 1:40"></label></div>
     <input type="range" min="0" max="180" step="1" value="${cur}" aria-label="Duración máxima">
     <div class="md-chips">${MAXDUR.map(([v, l]) => `<button type="button" data-v="${v}" class="${cur === v ? "on" : ""}">${l}</button>`).join("")}</div></div>`;
 }
 function setMaxDur(box, v, commit) {
   v = Math.round(+v || 0); if (v > 0 && v < 5) v = 5;
   box.querySelector(".md-val").textContent = fmtDur(v);
-  box.querySelector("input").value = v;
+  box.querySelector("input[type=range]").value = Math.min(v, 180);
+  const ti = box.querySelector(".md-in"); if (ti && document.activeElement !== ti) ti.value = v ? Math.floor(v / 60) + ":" + String(v % 60).padStart(2, "0") : "";
   box.querySelectorAll(".md-chips button").forEach((b) => b.classList.toggle("on", +b.dataset.v === v));
   if (!S.P) return;
   S.P.settings.maxDur = v;
@@ -1341,6 +1342,18 @@ function setMaxDur(box, v, commit) {
 }
 document.addEventListener("input", (e) => { const box = e.target.closest(".maxdur"); if (box && e.target.type === "range") setMaxDur(box, e.target.value, false); });
 document.addEventListener("change", (e) => { const box = e.target.closest(".maxdur"); if (box && e.target.type === "range") { pushHistory(); setMaxDur(box, e.target.value, true); } });
+function parseDur(t) {
+  t = String(t || "").trim().replace(",", ".").replace(/\s*(min|m|s|seg)\s*$/i, "");
+  if (!t) return 0;
+  if (t.includes(":")) { const [m, s] = t.split(":"); return (+m || 0) * 60 + (+s || 0); }
+  return Math.round(+t) || 0;
+}
+document.addEventListener("keydown", (e) => { if (e.target.classList && e.target.classList.contains("md-in") && e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+document.addEventListener("focusout", (e) => {
+  if (!e.target.classList || !e.target.classList.contains("md-in")) return;
+  const v = Math.min(3600, parseDur(e.target.value)); pushHistory(); setMaxDur(e.target.closest(".maxdur"), v, true);
+  e.target.value = v ? Math.floor(v / 60) + ":" + String(v % 60).padStart(2, "0") : "";
+});
 document.addEventListener("click", (e) => { const b = e.target.closest(".maxdur .md-chips button"); if (b) { pushHistory(); setMaxDur(b.closest(".maxdur"), b.dataset.v, true); } });
 function fmtShort(k) { return k === "vertical" ? "9:16" : k === "horizontal" ? "16:9" : k === "cuadrado" ? "1:1" : k; }
 function renderFormato() {
@@ -1916,7 +1929,7 @@ $("#gGo").addEventListener("click", async () => {
   }
   const fmtB = $("#gFmt button.on");
   runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,
-    maxDur: +(($("#gMax input") || {}).value || 0),
+    maxDur: S.P.settings.maxDur || 0,
     clean: true, subtitles: $("#gSubs").checked, anims: $("#gAnims").checked, highlight: true, prompt });
   $("#gPrompt").value = "";
 });

@@ -10,7 +10,8 @@ mkdir -p "$DIR/logs"
 running() { curl -s -m 1 "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; }
 
 # Actualización automática (si está configurada en config/update.json)
-if [ -f "$DIR/config/update.json" ]; then
+# (Desde la app no se espera: el editor avisa solo cuando hay versión nueva.)
+if [ -f "$DIR/config/update.json" ] && [ "$1" != "--sin-navegador" ]; then
   "$PY" "$DIR/app/updater.py" check >/dev/null 2>&1
   if [ $? -eq 10 ]; then
     if "$PY" "$DIR/app/updater.py" apply >> "$DIR/logs/actualizaciones.log" 2>&1 && running; then

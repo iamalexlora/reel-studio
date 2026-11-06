@@ -395,7 +395,7 @@ def create_project(name: str) -> dict:
     for sub in ("clips", "exports", "work", "media"):
         (d / sub).mkdir(parents=True, exist_ok=True)
     p = {"id": pid, "name": name, "created": time.time(), "updated": time.time(), "rev": 0,
-         "clips": [], "timeline": [], "broll": [], "words": [], "requests": [], "reference": None, "anims": [],
+         "clips": [], "timeline": [], "broll": [], "words": [], "requests": [], "reference": None, "anims": [], "guide": True,
          "settings": json.loads(json.dumps(DEFAULT_SETTINGS)), "style": default_style(), "log": []}
     _write(p)
     return p

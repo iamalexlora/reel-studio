@@ -248,6 +248,10 @@ def make_video(pid: str, o: dict) -> dict:
         for _ in range(1800):
             p = E.load(pid)
             busy = [c for c in p["clips"] if c.get("status") not in ("listo", "sin voz")]
+            ref = p.get("reference") or {}
+            if ref.get("file") and not ref.get("analysis") and any(
+                    j0["kind"] == "reference" and j0["project"] == pid and j0["status"] == "running" for j0 in JOBS.values()):
+                busy = busy or [ref]
             if not busy:
                 break
             prog(0.02, f"Procesando clips ({len(p['clips']) - len(busy)} de {len(p['clips'])} listos)…")
@@ -709,7 +713,7 @@ class H(BaseHTTPRequestHandler):
                 body = self.body_json()
                 cur = E.load(parts[2])
                 base = int(body.get("rev", -1))
-                for k in ("words", "settings", "style", "name", "timeline", "broll", "requests", "reference", "anims"):
+                for k in ("words", "settings", "style", "name", "timeline", "broll", "requests", "reference", "anims", "guide"):
                     if k in body:
                         cur[k] = body[k]
                 if "clips" in body:   # solo campos editables de cada clip

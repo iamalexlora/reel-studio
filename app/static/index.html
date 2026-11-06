@@ -11,16 +11,25 @@
 <body>
 <div class="backdrop" aria-hidden="true"></div>
 <div id="splash" aria-hidden="true">
+  <div class="sp-glow"></div>
+  <div class="sp-ring"></div>
   <svg viewBox="196 280 600 490" class="splash-logo">
-    <defs><linearGradient id="spen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3E6CF0"/><stop offset="1" stop-color="#2B5BD7"/></linearGradient></defs>
-    <rect class="sb s1" x="236" y="300" width="214" height="76" rx="38" fill="#FFE14D"/>
-    <rect class="sb s2" x="478" y="300" width="310" height="76" rx="38" fill="currentColor"/>
-    <rect class="sb s3" x="236" y="474" width="420" height="76" rx="38" fill="currentColor" fill-opacity=".28"/>
-    <path class="spen" d="M196 532 L 724 488" stroke="url(#spen)" stroke-width="54" stroke-linecap="round" fill="none"/>
-    <rect class="sb s4" x="236" y="648" width="330" height="76" rx="38" fill="currentColor"/>
-    <path class="splay" d="M640 628 L 640 744 Q 640 760 654 752 L 752 698 Q 766 686 752 674 L 654 620 Q 640 612 640 628 Z" fill="currentColor"/>
+    <defs>
+      <linearGradient id="spen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3E6CF0"/><stop offset="1" stop-color="#2B5BD7"/></linearGradient>
+      <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <clipPath id="spclip"><rect x="236" y="300" width="214" height="76" rx="38"/><rect x="478" y="300" width="310" height="76" rx="38"/><rect x="236" y="474" width="420" height="76" rx="38"/><rect x="236" y="648" width="330" height="76" rx="38"/></clipPath>
+    </defs>
+    <g class="sp-mark">
+      <rect class="sb s1" x="236" y="300" width="214" height="76" rx="38" fill="#FFE14D"/>
+      <rect class="sb s2" x="478" y="300" width="310" height="76" rx="38" fill="currentColor"/>
+      <rect class="sb s3" x="236" y="474" width="420" height="76" rx="38" fill="currentColor" fill-opacity=".28"/>
+      <path class="spen" d="M196 532 L 724 488" stroke="url(#spen)" stroke-width="54" stroke-linecap="round" fill="none"/>
+      <rect class="sb s4" x="236" y="648" width="330" height="76" rx="38" fill="currentColor"/>
+      <path class="splay" d="M640 628 L 640 744 Q 640 760 654 752 L 752 698 Q 766 686 752 674 L 654 620 Q 640 612 640 628 Z" fill="currentColor"/>
+      <g clip-path="url(#spclip)"><rect class="sp-sheen" x="100" y="280" width="160" height="470" fill="url(#sheen)"/></g>
+    </g>
   </svg>
-  <div class="splash-name">Reel Studio</div>
+  <div class="splash-name"><span>R</span><span>e</span><span>e</span><span>l</span><span>&nbsp;</span><span>S</span><span>t</span><span>u</span><span>d</span><span>i</span><span>o</span></div>
 </div>
 <div id="app">
 
@@ -71,11 +80,32 @@
           <div class="screen-badge" id="renderBadge" hidden>Vista previa final</div>
         </div>
         <div class="dropzone" id="dropZone">
-          <div class="dz-in">
-            <h1 id="dzTitle">Crea tu primer proyecto</h1>
-            <p id="dzText">Arrastra aquí tus videos (tomas hablando, de dron o de cámara). Se procesan en tu computadora; nada se sube a internet.</p>
-            <div class="dz-btns"><label class="btn primary big"><input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>Elegir videos</label>
-            <button class="btn big" type="button" data-link="clip">Pegar un enlace</button></div>
+          <div class="guide">
+            <h1 id="dzTitle">Empecemos tu video</h1>
+            <p class="fine" id="dzText">Cuatro pasos y Reel Studio hace el resto: limpia, arma, da color, pone subtítulos y animaciones. Después cambias lo que quieras. Todo se procesa en tu computadora.</p>
+            <div class="steps">
+              <section class="step"><i>1</i><h3>Tus videos</h3><p class="fine">Tomas hablando, de dron o de cámara. Puedes elegir varios.</p>
+                <div class="dz-btns"><label class="btn primary"><input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>Elegir videos</label>
+                  <button class="btn" type="button" data-link="clip">Pegar enlace</button></div>
+                <div class="gclips" id="gClips"></div></section>
+              <section class="step"><i>2</i><h3>Estilo</h3>
+                <div class="vibes compact" id="gVibe">
+                  <button type="button" data-v="dinamico"><b>Dinámico</b><span>Rápido, zoom, color vivo</span></button>
+                  <button type="button" data-v="elegante"><b>Elegante</b><span>Disolvencias, look de cine</span></button>
+                  <button type="button" data-v="natural"><b>Natural</b><span>Simple y real</span></button>
+                </div></section>
+              <section class="step"><i>3</i><h3>Referencia y lo que quieres <em>opcional</em></h3>
+                <div class="dz-btns"><label class="btn small"><input type="file" id="gRefFile" accept="video/*,.mov,.mp4,.m4v" hidden>Video de referencia</label>
+                  <button class="btn small" type="button" data-link="referencia">Pegar enlace</button></div>
+                <div class="fine" id="gRefName"></div>
+                <textarea id="gPrompt" class="textin" rows="3" placeholder="Cuéntame cómo lo quieres. Ej: ritmo rápido como la referencia, subtítulos amarillos, termina invitando a seguirme."></textarea></section>
+              <section class="step"><i>4</i><h3>Formato y textos</h3>
+                <div class="seg" id="gFmt"></div>
+                <input id="gTitle" class="textin" maxlength="60" placeholder="Título al inicio (opcional)">
+                <input id="gCta" class="textin" maxlength="40" value="Sígueme para más" placeholder="Texto al final"></section>
+            </div>
+            <div class="gactions"><button class="btn magic big" type="button" id="gGo">✦ Hacer mi video</button>
+              <a href="#" id="gManual">o editar a mano</a></div>
           </div>
         </div>
       </div>

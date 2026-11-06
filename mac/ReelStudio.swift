@@ -73,8 +73,8 @@ func statusPage(_ title: String, _ text: String, spinner: Bool = true) -> String
     <!doctype html><html><head><meta charset=utf-8><style>
     :root{color-scheme:light dark}
     body{margin:0;height:100vh;display:grid;place-items:center;font:15px/1.5 -apple-system,system-ui;
-         background:#F3F4F1;color:#17201D}
-    @media (prefers-color-scheme:dark){body{background:#141917;color:#E8ECE9}}
+         background:#C9CBD0;color:#1D1D1F}
+    @media (prefers-color-scheme:dark){body{background:#0B0B0C;color:#F5F5F7}}
     .c{max-width:440px;text-align:center;padding:24px}
     h1{font:600 26px/1.2 'New York',Georgia,serif;margin:0 0 10px}
     p{margin:0;opacity:.75}
@@ -111,7 +111,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         window.setFrameAutosaveName("ReelStudioMain")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        show("Abriendo Reel Studio", "Un momento…")
+        showBlank()
         DispatchQueue.global(qos: .userInitiated).async { self.boot() }
     }
 
@@ -119,6 +119,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         DispatchQueue.main.async {
             self.web.loadHTMLString(statusPage(title, text, spinner: spinner), baseURL: nil)
         }
+    }
+
+    // Mientras arranca: solo el color de fondo del programa (el logo animado lo pone el editor al abrir).
+    func showBlank() {
+        let html = "<!doctype html><html><head><meta charset=utf-8><style>:root{color-scheme:light dark}" +
+            "html,body{margin:0;height:100vh;background:#0B0B0C}@media (prefers-color-scheme:light){html,body{background:#C9CBD0}}" +
+            "</style></head><body></body></html>"
+        DispatchQueue.main.async { self.web.loadHTMLString(html, baseURL: nil) }
     }
 
     func loadEditor() {
@@ -183,7 +191,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
             run("/bin/bash", [root.appendingPathComponent("stop.sh").path])
             for _ in 0..<20 { if !serverUp() { break }; Thread.sleep(forTimeInterval: 0.25) }
         }
-        show("Abriendo Reel Studio", "Buscando actualizaciones…")
+        showBlank()
         let (code, out) = run("/bin/bash", [root.appendingPathComponent("start.sh").path, "--sin-navegador"])
         for _ in 0..<60 {
             if serverUp() { loadEditor(); return }

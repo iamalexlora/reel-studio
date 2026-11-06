@@ -260,11 +260,11 @@ function clearScreen() {
 function render() {
   const P = S.P;
   $("#projTitle").disabled = !P; $("#projTitle").value = P ? P.name : "";
-  $("#dropZone").hidden = !!(P && P.clips.length);
-  $("#viewer").classList.toggle("empty", !(P && P.clips.length));
-  $("#dzTitle").textContent = P ? "Agrega tus videos" : "Crea tu primer proyecto";
-  $("#dzText").textContent = P ? "Arrastra aquí las tomas: hablando, de dron o de cámara. Puedes agregar más cuando quieras."
-    : "Arrastra aquí tus videos (tomas hablando, de dron o de cámara). Se procesan en tu computadora; nada se sube a internet.";
+  const guiding = !P || !P.clips.length || P.guide === true;
+  $("#dropZone").hidden = !guiding;
+  $("#viewer").classList.toggle("empty", guiding);
+  $("#app").classList.toggle("guiding", guiding);
+  if (guiding) renderGuide();
   if (!P) {
     $("#durLabel").textContent = ""; renderProjects(); $$(".panel").forEach((p) => (p.innerHTML = ""));
     ["#laneMain", "#laneBroll", "#laneMusic", "#laneAnim", "#tlRuler", "#animLayer"].forEach((s) => ($(s).innerHTML = ""));
@@ -1708,12 +1708,17 @@ function openMake() {
 $("#makeBtn").addEventListener("click", openMake);
 $("#mVibe").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.make.style = b.dataset.v; $$("#mVibe button").forEach((x) => x.classList.toggle("on", x === b)); });
 $("#mFmt").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $$("#mFmt button").forEach((x) => x.classList.toggle("on", x === b)); });
-$("#mGo").addEventListener("click", async () => {
-  const pid = S.P.id, fmtB = $("#mFmt button.on");
+$("#mGo").addEventListener("click", () => {
+  const fmtB = $("#mFmt button.on");
   const body = { style: S.make.style, format: fmtB ? fmtB.dataset.v : S.P.settings.format, title: $("#mTitle").value, cta: $("#mCta").value,
     clean: $("#mClean").checked, subtitles: $("#mSubs").checked, anims: $("#mAnims").checked, highlight: true };
   $("#makeDlg").close();
-  await flushSave(); pushHistory();
+  runMake(body);
+});
+async function runMake(body) {
+  const pid = S.P.id;
+  if (S.P.guide) { S.P.guide = false; scheduleSave(); }
+  await flushSave(); pushHistory(); render();
   let j;
   try { j = await api("POST", `/api/projects/${pid}/make`, body); } catch (e) { return toast(e.message, 5000); }
   document.body.classList.add("making");
@@ -1731,6 +1736,47 @@ $("#mGo").addEventListener("click", async () => {
   S.previewReady = pid; $("#renderToggleWrap").hidden = false; $("#renderToggle").checked = true;
   seek(0); setRender(true); play();
   toast("¡Listo! Así queda tu video. Cambia lo que quieras y exporta.", 5000);
+}
+
+/* ---------------------------------------------------------------- inicio guiado */
+function renderGuide() {
+  const P = S.P;
+  $$("#gVibe button").forEach((b) => b.classList.toggle("on", b.dataset.v === S.make.style));
+  const f = P ? P.settings.format : "vertical";
+  if (S.meta) $("#gFmt").innerHTML = Object.keys(S.meta.formats).map((k) => `<button type="button" data-v="${k}" class="${k === f ? "on" : ""}">${fmtShort(k)}</button>`).join("");
+  $("#gClips").innerHTML = P ? P.clips.map((c) => {
+    const ok = ["listo", "sin voz"].includes(c.status);
+    return `<span class="gclip ${ok ? "ok" : ""}">${ok ? "✓" : '<span class="spin"></span>'} ${esc(c.name)}</span>`;
+  }).join("") : "";
+  const ref = P && P.reference;
+  $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
+  if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
+  $("#gGo").disabled = !(P && P.clips.length);
+  $("#gManual").hidden = !(P && P.clips.length);
+}
+$("#gVibe").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.make.style = b.dataset.v; renderGuide(); });
+$("#gFmt").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  $$("#gFmt button").forEach((x) => x.classList.toggle("on", x === b));
+  if (S.P) { S.P.settings.format = b.dataset.v; scheduleSave(); }
+});
+$("#gRefFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (!S.P) { const id = await newProject("Mi video"); if (!id) return; }
+  await addReference(f); renderGuide();
+});
+$("#gManual").addEventListener("click", (e) => { e.preventDefault(); if (!S.P) return; S.P.guide = false; scheduleSave(); render(); });
+$("#gGo").addEventListener("click", async () => {
+  const P = S.P; if (!P || !P.clips.length) return toast("Primero elige tus videos (paso 1).");
+  const prompt = $("#gPrompt").value.trim();
+  if (prompt) {
+    if (P.reference) { P.reference.prompt = prompt; scheduleSave(); }
+    try { await flushSave(); await api("POST", `/api/projects/${P.id}/requests`, { text: prompt, kind: P.reference ? "referencia" : "" }); } catch (_) {}
+  }
+  const fmtB = $("#gFmt button.on");
+  runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,
+    clean: true, subtitles: true, anims: true, highlight: true, prompt });
+  $("#gPrompt").value = "";
 });
 
 /* ---------------------------------------------------------------- pegar enlaces (yt-dlp) */
@@ -1763,8 +1809,14 @@ $("#linkGo").addEventListener("click", async () => {
 const LAYOUT_KEY = "rs-layout";
 let layout = {};
 try { layout = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "{}") || {}; } catch (_) {}
+const MIN_CENTER = 700;
 function applyLayout() {
   const app = $("#app"), st = $(".stage");
+  // si la ventana se achica, los paneles laterales ceden espacio para que nada se encime
+  const room = innerWidth - 40 - MIN_CENTER;
+  if (layout.side && layout.insp && layout.side + layout.insp > room) { const f = Math.max(0.5, room / (layout.side + layout.insp)); layout.side = Math.max(170, Math.round(layout.side * f)); layout.insp = Math.max(300, Math.round(layout.insp * f)); }
+  else if (layout.insp && layout.insp + 236 > room) layout.insp = Math.max(300, room - 236);
+  else if (layout.side && layout.side + 404 > room) layout.side = Math.max(170, room - 404);
   if (layout.side || layout.insp) {
     const cs = getComputedStyle(app).gridTemplateColumns.split(" ");
     app.style.gridTemplateColumns = `${layout.side ? layout.side + "px" : cs[0]} minmax(0, 1fr) ${layout.insp ? layout.insp + "px" : cs[2]}`;
@@ -1787,8 +1839,9 @@ for (const k of ["side", "insp", "tl"]) {
     e.preventDefault(); rz[k].setPointerCapture(e.pointerId); document.body.classList.add("resizing", "resizing-" + (k === "tl" ? "v" : "h"));
     const x0 = e.clientX, y0 = e.clientY, side0 = $(".sidebar").offsetWidth, insp0 = $(".inspector").offsetWidth, tl0 = $("#timeline").offsetHeight;
     const mv = (ev) => {
-      if (k === "side") layout.side = Math.round(clamp(side0 + ev.clientX - x0, 170, 420));
-      if (k === "insp") layout.insp = Math.round(clamp(insp0 - (ev.clientX - x0), 300, Math.min(720, innerWidth * 0.45)));
+      const room = innerWidth - 40 - MIN_CENTER;
+      if (k === "side") layout.side = Math.round(clamp(side0 + ev.clientX - x0, 170, Math.max(170, Math.min(420, room - insp0))));
+      if (k === "insp") layout.insp = Math.round(clamp(insp0 - (ev.clientX - x0), 300, Math.max(300, Math.min(720, room - side0))));
       if (k === "tl") layout.tl = Math.round(clamp(tl0 - (ev.clientY - y0), 150, innerHeight * 0.62));
       applyLayout(); afterLayout();
     };
@@ -1797,13 +1850,13 @@ for (const k of ["side", "insp", "tl"]) {
   });
   rz[k].addEventListener("dblclick", () => { delete layout[k]; saveLayout(); applyLayout(); afterLayout(); });
 }
-window.addEventListener("resize", () => requestAnimationFrame(placeResizers));
+window.addEventListener("resize", () => requestAnimationFrame(() => { if (layout.side || layout.insp) applyLayout(); else placeResizers(); }));
 
 /* ---------------------------------------------------------------- pantalla de inicio */
 function hideSplash() {
   const sp = $("#splash"); if (!sp || sp.classList.contains("out")) return;
-  const wait = Math.max(0, 1700 - (performance.now() - (window.__t0 || 0)));
-  setTimeout(() => { sp.classList.add("out"); setTimeout(() => sp.remove(), 700); }, wait);
+  const wait = Math.max(0, 2350 - (performance.now() - (window.__t0 || 0)));
+  setTimeout(() => { sp.classList.add("out"); setTimeout(() => sp.remove(), 1000); }, wait);
 }
 window.__t0 = performance.now();
 setTimeout(hideSplash, 4500);

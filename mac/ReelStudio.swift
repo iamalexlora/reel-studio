@@ -267,6 +267,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         win.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         winItem.submenu = win
         NSApp.windowsMenu = win
+
+        let updItem = NSMenuItem(); main.addItem(updItem)
+        let upd = NSMenu(title: "Actualizaciones")
+        upd.addItem(withTitle: "Buscar actualizaciones…", action: #selector(checkUpdates), keyEquivalent: "u")
+        upd.addItem(withTitle: "Ver qué cambió", action: #selector(openChanges), keyEquivalent: "")
+        upd.addItem(.separator())
+        upd.addItem(withTitle: "Token de GitHub…", action: #selector(changeToken), keyEquivalent: "")
+        updItem.submenu = upd
         NSApp.mainMenu = main
     }
 
@@ -274,6 +282,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         if web.url?.host == "localhost" { web.reload() } else { DispatchQueue.global().async { self.boot() } }
     }
     @objc func openInBrowser() { NSWorkspace.shared.open(appURL) }
+    @objc func openChanges() {
+        let c = readJSON(root.appendingPathComponent("config/update.json"))
+        let repo = (c["repo"] as? String) ?? "iamalexlora/reel-studio"
+        if let u = URL(string: "https://github.com/\(repo)/commits/main") { NSWorkspace.shared.open(u) }
+    }
     @objc func openProjects() {
         let p = root.appendingPathComponent("proyectos")
         try? FileManager.default.createDirectory(at: p, withIntermediateDirectories: true)

@@ -37,13 +37,14 @@ def make(scale: int, out: Path):
     d.rounded_rectangle(box, radius=s(16), fill="#1A1A1D", outline="#2C2C31", width=max(1, s(1)))
     d.text((s(56), s(278)), "Primera vez que lo abres", font=semi, fill="#F5F5F7")
     steps = [
-        "1.  Abre Reel Studio desde la carpeta Aplicaciones.",
-        "2.  Si la Mac dice que no puede abrirlo, entra a Ajustes del Sistema › Privacidad y seguridad.",
-        "3.  Baja hasta el final y toca «Abrir igualmente». Confirma con tu contraseña o Touch ID.",
-        "4.  Listo: desde ahí se abre normal y se actualiza solo.",
+        ("1.  Abre Reel Studio desde la carpeta Aplicaciones.", "#C9CBD0"),
+        ("2.  Saldrá un aviso de que no se pudo abrir: toca «Listo». No toques «Mover a la papelera».", "#FFE14D"),
+        ("3.  Ve a Ajustes del Sistema › Privacidad y seguridad.", "#C9CBD0"),
+        ("4.  Baja hasta el final, toca «Abrir igualmente» y confirma con tu contraseña o Touch ID.", "#C9CBD0"),
+        ("5.  Listo: desde ahí se abre normal y se actualiza solo.", "#C9CBD0"),
     ]
-    for i, t in enumerate(steps):
-        d.text((s(56), s(304) + i * s(22)), t, font=body, fill="#C9CBD0")
+    for i, (t, col) in enumerate(steps):
+        d.text((s(56), s(302) + i * s(20)), t, font=small, fill=col)
     img.save(out)
 
 

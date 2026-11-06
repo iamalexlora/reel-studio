@@ -1,50 +1,64 @@
-"""Genera el fondo del DMG (660×440 y @2x) con las instrucciones de instalación."""
+"""Genera el fondo del DMG (660×520 y @2x) con instrucciones bien visibles."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 HERE = Path(__file__).resolve().parent
 FONTS = HERE.parent.parent / "app" / "fonts"
+W0, H0 = 660, 520
+ICON_Y = 128  # debe coincidir con settings.py
 
 
 def make(scale: int, out: Path):
-    W, H = 660 * scale, 440 * scale
+    W, H = W0 * scale, H0 * scale
     s = lambda v: int(v * scale)  # noqa: E731
     img = Image.new("RGB", (W, H), "#0B0B0C")
-    # degradado suave y brillo azul/violeta
     glow = Image.new("RGB", (W, H), "#0B0B0C")
     g = ImageDraw.Draw(glow)
-    g.ellipse([s(-120), s(-220), s(420), s(220)], fill="#13213F")
-    g.ellipse([s(300), s(-240), s(820), s(200)], fill="#1D1838")
+    g.ellipse([s(-120), s(-220), s(420), s(200)], fill="#13213F")
+    g.ellipse([s(300), s(-240), s(820), s(180)], fill="#1D1838")
     glow = glow.filter(ImageFilter.GaussianBlur(s(90)))
     img = Image.blend(img, glow, 0.9)
     d = ImageDraw.Draw(img)
-    bold = ImageFont.truetype(str(FONTS / "Poppins-ExtraBold.ttf"), s(22))
-    semi = ImageFont.truetype(str(FONTS / "Poppins-SemiBold.ttf"), s(12.5))
-    body = ImageFont.truetype(str(FONTS / "HankenGrotesk.ttf"), s(12))
-    small = ImageFont.truetype(str(FONTS / "HankenGrotesk.ttf"), s(11))
+    F = lambda name, size: ImageFont.truetype(str(FONTS / name), s(size))  # noqa: E731
+    title, head, step, stepb = F("Poppins-ExtraBold.ttf", 19), F("Poppins-ExtraBold.ttf", 16), \
+        F("Poppins-SemiBold.ttf", 13), F("Poppins-ExtraBold.ttf", 13)
 
     def center(text, y, font, fill):
         w = d.textlength(text, font=font)
         d.text(((W - w) / 2, y), text, font=font, fill=fill)
 
-    center("Arrastra Reel Studio a Aplicaciones", s(26), bold, "#F5F5F7")
-    # flecha entre los dos íconos (íconos en x=170 y x=490, y=165)
-    y = s(165)
+    center("1 · Arrastra Reel Studio a Aplicaciones", s(18), title, "#F5F5F7")
+    y = s(ICON_Y)
     d.line([s(250), y, s(398), y], fill="#3E6CF0", width=s(5))
     d.polygon([(s(410), y), (s(394), y - s(11)), (s(394), y + s(11))], fill="#3E6CF0")
-    # recuadro de instrucciones
-    box = [s(36), s(262), W - s(36), H - s(24)]
-    d.rounded_rectangle(box, radius=s(16), fill="#1A1A1D", outline="#2C2C31", width=max(1, s(1)))
-    d.text((s(56), s(278)), "Primera vez que lo abres", font=semi, fill="#F5F5F7")
+
+    # recuadro amarillo muy visible
+    box = [s(24), s(222), W - s(24), H - s(18)]
+    d.rounded_rectangle(box, radius=s(18), fill="#1C1A10", outline="#FFE14D", width=s(2.5))
+    d.rounded_rectangle([box[0], box[1], box[2], box[1] + s(42)], radius=s(18), fill="#FFE14D")
+    d.rectangle([box[0], box[1] + s(24), box[2], box[1] + s(42)], fill="#FFE14D")
+    tx, ty = s(46), box[1] + s(10)
+    d.polygon([(tx + s(11), ty), (tx, ty + s(20)), (tx + s(22), ty + s(20))], fill="#111111")
+    d.text((tx + s(9.2), ty + s(2.5)), "!", font=stepb, fill="#FFE14D")
+    d.text((tx + s(32), box[1] + s(9)), "2 · LEE ESTO ANTES DE ABRIRLO POR PRIMERA VEZ", font=head, fill="#111111")
     steps = [
-        ("1.  Abre Reel Studio desde la carpeta Aplicaciones.", "#C9CBD0"),
-        ("2.  Saldrá un aviso de que no se pudo abrir: toca «Listo». No toques «Mover a la papelera».", "#FFE14D"),
-        ("3.  Ve a Ajustes del Sistema › Privacidad y seguridad.", "#C9CBD0"),
-        ("4.  Baja hasta el final, toca «Abrir igualmente» y confirma con tu contraseña o Touch ID.", "#C9CBD0"),
-        ("5.  Listo: desde ahí se abre normal y se actualiza solo.", "#C9CBD0"),
+        ("Abre Reel Studio desde la carpeta Aplicaciones.", False),
+        ("Saldrá un aviso de que no se pudo abrir: toca «Listo».", True),
+        ("NO toques «Mover a la papelera».", True),
+        ("Ve a Ajustes del Sistema › Privacidad y seguridad.", False),
+        ("Baja hasta el final y toca «Abrir igualmente».", False),
+        ("Confirma con tu contraseña o Touch ID. ¡Listo!", False),
     ]
-    for i, (t, col) in enumerate(steps):
-        d.text((s(56), s(302) + i * s(20)), t, font=small, fill=col)
+    yy = box[1] + s(56)
+    for i, (t, warn) in enumerate(steps):
+        cx, cy, r = s(58), yy + s(10), s(11)
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill="#FF453A" if warn else "#3E6CF0")
+        n = str(i + 1)
+        d.text((cx - d.textlength(n, font=stepb) / 2, cy - s(9)), n, font=stepb, fill="#FFFFFF")
+        d.text((s(80), yy), t, font=stepb if warn else step, fill="#FFE14D" if warn else "#F5F5F7")
+        yy += s(30)
+    note = "Solo se hace una vez. Después se abre normal y se actualiza solo."
+    d.text((s(80), yy + s(4)), note, font=step, fill="#9EA0A6")
     img.save(out)
 
 

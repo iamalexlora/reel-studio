@@ -85,6 +85,14 @@ func statusPage(_ title: String, _ text: String, spinner: Bool = true) -> String
     """
 }
 
+// Franja invisible arriba para mover la ventana (y doble clic para agrandarla), encima del editor.
+class DragBar: NSView {
+    override var mouseDownCanMoveWindow: Bool { true }
+    override func mouseDown(with e: NSEvent) {
+        if e.clickCount == 2 { window?.performZoom(nil) } else { window?.performDrag(with: e) }
+    }
+}
+
 // MARK: - app
 
 class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate, NSWindowDelegate {
@@ -97,13 +105,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         buildMenu()
         let cfg = WKWebViewConfiguration()
         cfg.mediaTypesRequiringUserActionForPlayback = []
+        // El editor ocupa también la franja de arriba (se ve el vidrio del programa detrás de los botones de la ventana)
+        cfg.userContentController.addUserScript(WKUserScript(
+            source: "document.documentElement.classList.add('mac-app')", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
         web = WKWebView(frame: .zero, configuration: cfg)
         web.uiDelegate = self
         web.navigationDelegate = self
         web.allowsMagnification = true
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         window.delegate = self
         window.title = "Reel Studio"          // se usa en el menú Ventana y Mission Control
@@ -114,7 +125,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
                                                                 : NSColor(red: 0.788, green: 0.796, blue: 0.816, alpha: 1)
         }
         window.minSize = NSSize(width: 900, height: 600)
-        window.contentView = web
+        let container = NSView()
+        web.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(web)
+        let bar = DragBar()
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(bar)
+        NSLayoutConstraint.activate([
+            web.leadingAnchor.constraint(equalTo: container.leadingAnchor), web.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            web.topAnchor.constraint(equalTo: container.topAnchor), web.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            bar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 78), bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            bar.topAnchor.constraint(equalTo: container.topAnchor), bar.heightAnchor.constraint(equalToConstant: 28),
+        ])
+        window.contentView = container
         window.center()
         window.setFrameAutosaveName("ReelStudioMain")
         window.makeKeyAndOrderFront(nil)

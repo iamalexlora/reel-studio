@@ -601,3 +601,9 @@ body.resizing iframe { pointer-events: none; }
 .splash-name span:nth-child(9) { animation-delay: 1.56s, 1.75s; }
 .splash-name span:nth-child(10) { animation-delay: 1.60s, 1.75s; }
 .splash-name span:nth-child(11) { animation-delay: 1.65s, 1.75s; }
+
+/* botón CC de subtítulos */
+.ccbtn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); color: var(--muted); font: 700 12px/1 var(--font); cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+.ccbtn span { font-weight: 500; }
+.ccbtn.on { color: #fff; background: var(--accent); border-color: transparent; }
+.subsrow { padding: 10px 12px; border-radius: 12px; background: var(--field); margin: 0 0 10px; }

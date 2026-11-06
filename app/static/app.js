@@ -281,7 +281,7 @@ function render() {
   $("#renderToggleWrap").hidden = !S.previewReady || S.previewReady !== P.id;
   const pend = (P.requests || []).filter((r) => r.status === "pendiente").length;
   $("#reqBadge").hidden = !pend; $("#reqBadge").textContent = pend;
-  sizeScreen(); renderProjects(); renderPanel(); S.capKey = null; drawFrame();
+  sizeScreen(); renderProjects(); renderPanel(); S.capKey = null; drawFrame(); syncCC();
 }
 function renderPanel() {
   const f = { "t-texto": renderTexto, "t-clip": renderClips, "t-color": renderColor, "t-audio": renderAudio, "t-estilo": renderEstilo,
@@ -852,6 +852,12 @@ function orderedClips() {
   for (const c of P.clips) if (!seen.has(c.id)) out.push(c);
   return out;
 }
+function setSubs(on) {
+  pushHistory(); S.P.settings.subtitles = !!on; changed();
+  toast(on ? "Subtítulos activados." : "Subtítulos ocultos. Puedes volver a activarlos con CC.");
+}
+function syncCC() { const b = $("#ccBtn"); if (b && S.P) b.classList.toggle("on", !!S.P.settings.subtitles); }
+$("#ccBtn").addEventListener("click", () => { if (S.P) setSubs(!S.P.settings.subtitles); });
 function renderTexto() {
   const P = S.P, box = $("#t-texto");
   const speechClips = orderedClips().filter((c) => c.speech);
@@ -860,7 +866,8 @@ function renderTexto() {
     box.innerHTML = `<p class="empty-note">${busy ? "Transcribiendo… el texto aparece aquí en cuanto termine." : P.clips.length ? "Ningún clip tiene voz. Arma el montaje en la línea de tiempo y la pestaña Clips." : "Agrega videos para ver aquí lo que se dice."}</p>`;
     return;
   }
-  const W = P.words, html = [`<div class="tip">Clic en una palabra para ir a ese momento. Arrastra o usa Shift para elegir varias y pulsa <b>⌫</b> para quitarlas. Doble clic corrige el subtítulo.</div>
+  const W = P.words, html = [`<div class="row-f subsrow"><label for="subsOnT"><b>Subtítulos en el video</b><span class="fine" style="display:block;margin:0">Apagarlos no borra el texto: sigue sirviendo para cortar.</span></label><input type="checkbox" class="switch" id="subsOnT" ${P.settings.subtitles ? "checked" : ""}></div>
+    <div class="tip">Clic en una palabra para ir a ese momento. Arrastra o usa Shift para elegir varias y pulsa <b>⌫</b> para quitarlas. Doble clic corrige el subtítulo.</div>
     <div class="row-f" style="margin-top:0"><span class="fine" style="margin:0"><s style="text-decoration-color:var(--accent);text-decoration-thickness:2px">tachado</s> no sale · <u style="text-decoration:underline wavy var(--warn)">ondulado</u> posible muletilla</span>
     <button class="btn small" id="autoBtn">Limpiar de nuevo</button></div><div class="text" id="text" tabindex="0">`];
   for (const c of speechClips) {
@@ -897,6 +904,7 @@ function renderTexto() {
   html.push("</div>");
   box.innerHTML = html.join("");
   S.nowEl = null; S.nowIdx = null;
+  $("#subsOnT").onchange = (e) => setSubs(e.target.checked);
   $("#autoBtn").onclick = async () => { await flushSave(); pushHistory(); S.P = await api("POST", `/api/projects/${P.id}/autoclean`); render(); const s = S.P.autoStats || {}; toast(`Marqué ${s["muletilla"] || 0} muletillas, ${s["repetición"] || 0} repeticiones y ${s["toma repetida"] || 0} palabras de tomas repetidas.`); };
   wireText();
   placeSelTools();
@@ -1752,6 +1760,7 @@ function renderGuide() {
   const ref = P && P.reference;
   $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
+  if (P && !S._gSubsInit) { $("#gSubs").checked = P.settings.subtitles !== false; S._gSubsInit = true; }
   $("#gGo").disabled = !(P && P.clips.length);
   $("#gManual").hidden = !(P && P.clips.length);
 }
@@ -1776,7 +1785,7 @@ $("#gGo").addEventListener("click", async () => {
   }
   const fmtB = $("#gFmt button.on");
   runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,
-    clean: true, subtitles: true, anims: true, highlight: true, prompt });
+    clean: true, subtitles: $("#gSubs").checked, anims: $("#gAnims").checked, highlight: true, prompt });
   $("#gPrompt").value = "";
 });
 

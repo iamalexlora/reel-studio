@@ -102,7 +102,9 @@
               <section class="step"><i>4</i><h3>Formato y textos</h3>
                 <div class="seg" id="gFmt"></div>
                 <input id="gTitle" class="textin" maxlength="60" placeholder="Título al inicio (opcional)">
-                <input id="gCta" class="textin" maxlength="40" value="Sígueme para más" placeholder="Texto al final"></section>
+                <input id="gCta" class="textin" maxlength="40" value="Sígueme para más" placeholder="Texto al final">
+                <div class="row-f"><label for="gSubs">Subtítulos animados</label><input type="checkbox" class="switch" id="gSubs" checked></div>
+                <div class="row-f"><label for="gAnims">Animaciones (título y llamada final)</label><input type="checkbox" class="switch" id="gAnims" checked></div></section>
             </div>
             <div class="gactions"><button class="btn magic big" type="button" id="gGo">✦ Hacer mi video</button>
               <a href="#" id="gManual">o editar a mano</a></div>
@@ -115,6 +117,7 @@
         </button>
         <div class="tc"><span id="tcNow">0:00.0</span><span class="tc-of"> / <span id="tcTotal">0:00.0</span></span></div>
         <div class="spacer"></div>
+        <button class="ccbtn" id="ccBtn" type="button" title="Mostrar u ocultar los subtítulos">CC <span>Subtítulos</span></button>
         <label class="mini" id="renderToggleWrap" hidden><input type="checkbox" id="renderToggle"> Ver vista previa final</label>
       </div>
     </section>

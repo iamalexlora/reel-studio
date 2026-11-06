@@ -1771,10 +1771,18 @@ $("#laneAnim").addEventListener("pointerdown", (e) => {
 
 /* ---------------------------------------------------------------- «Hacer mi video» */
 S.make = { style: "dinamico" };
+const VIBES = [
+  ["dinamico", "Dinámico", "Rápido, zoom, color vivo"], ["viral", "Viral", "Cortes secos, palabras gigantes"],
+  ["energetico", "Energético", "Muy rápido, barridos, deporte"], ["elegante", "Elegante", "Disolvencias, look de cine"],
+  ["cinematico", "Cinemático", "Pausado, fundidos a negro, mate"], ["corporativo", "Corporativo", "Limpio y sobrio, para empresas"],
+  ["calido", "Cálido", "Tonos cálidos, lifestyle"], ["vintage", "Vintage", "Grano y color de época"],
+  ["bn", "Blanco y negro", "Dramático y elegante"], ["natural", "Natural", "Simple y real"],
+];
+function vibeCards() { return VIBES.map(([k, l, d]) => `<button type="button" data-v="${k}" class="${S.make.style === k ? "on" : ""}"><b>${l}</b><span>${d}</span></button>`).join(""); }
 function openMake() {
   if (!S.P || !S.P.clips.length) return toast("Primero agrega tus videos.");
   const d = $("#makeDlg");
-  $$("#mVibe button").forEach((b) => b.classList.toggle("on", b.dataset.v === S.make.style));
+  $("#mVibe").innerHTML = vibeCards();
   const f = S.P.settings.format;
   $("#mFmt").innerHTML = fmtCards(f);
   d.showModal();
@@ -1827,6 +1835,7 @@ function fmtCards(sel) {
 }
 function renderGuide() {
   const P = S.P;
+  if (!$("#gVibe").querySelector("button")) $("#gVibe").innerHTML = vibeCards();
   $$("#gVibe button").forEach((b) => b.classList.toggle("on", b.dataset.v === S.make.style));
   const f = P ? P.settings.format : "vertical";
   if (S.meta) $("#gFmt").innerHTML = fmtCards(f);

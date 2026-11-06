@@ -232,9 +232,16 @@ def install_anims() -> dict:
 
 # ---------------------------------------------------------------- «Hacer mi video»
 VIBES = {
-    "dinamico": {"label": "Dinámico", "preset": "impacto", "look": "vivo", "trans": "zoom", "tdur": 0.3, "pace": 1.8},
-    "elegante": {"label": "Elegante", "preset": "limpio", "look": "cine", "trans": "disolver", "tdur": 0.5, "pace": 2.8},
-    "natural":  {"label": "Natural", "preset": "limpio", "look": "natural", "trans": "corte", "tdur": 0.3, "pace": 2.5},
+    "dinamico":    {"label": "Dinámico", "preset": "impacto", "look": "vivo", "trans": "zoom", "tdur": 0.3, "pace": 1.8},
+    "viral":       {"label": "Viral", "preset": "titular", "look": "vivo", "trans": "corte", "tdur": 0.3, "pace": 1.3},
+    "energetico":  {"label": "Energético", "preset": "impacto", "look": "vivo", "trans": "barrido", "tdur": 0.25, "pace": 1.2},
+    "elegante":    {"label": "Elegante", "preset": "limpio", "look": "cine", "trans": "disolver", "tdur": 0.5, "pace": 2.8},
+    "cinematico":  {"label": "Cinemático", "preset": "limpio", "look": "mate", "trans": "negro", "tdur": 0.6, "pace": 3.2},
+    "corporativo": {"label": "Corporativo", "preset": "limpio", "look": "natural", "trans": "disolver", "tdur": 0.4, "pace": 3.0},
+    "calido":      {"label": "Cálido", "preset": "limpio", "look": "calido", "trans": "disolver", "tdur": 0.45, "pace": 2.6},
+    "vintage":     {"label": "Vintage", "preset": "titular", "look": "vintage", "trans": "difuminar", "tdur": 0.5, "pace": 2.4},
+    "bn":          {"label": "Blanco y negro", "preset": "titular", "look": "bn", "trans": "negro", "tdur": 0.5, "pace": 2.6},
+    "natural":     {"label": "Natural", "preset": "limpio", "look": "natural", "trans": "corte", "tdur": 0.3, "pace": 2.5},
 }
 
 

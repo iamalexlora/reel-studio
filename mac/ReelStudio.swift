@@ -302,6 +302,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         let view = NSMenu(title: "Ver")
         view.addItem(withTitle: "Recargar", action: #selector(reload), keyEquivalent: "r")
         view.addItem(withTitle: "Abrir en el navegador", action: #selector(openInBrowser), keyEquivalent: "")
+        view.addItem(.separator())
+        view.addItem(withTitle: "Mostrar videos exportados", action: #selector(openExports), keyEquivalent: "e")
         view.addItem(withTitle: "Mostrar carpeta de proyectos", action: #selector(openProjects), keyEquivalent: "")
         viewItem.submenu = view
 

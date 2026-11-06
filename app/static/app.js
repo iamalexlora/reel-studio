@@ -1357,6 +1357,58 @@ $("#checkUpdBtn").addEventListener("click", async () => {
   b.disabled = false; b.textContent = "Buscar actualizaciones";
 });
 
+/* cápsula de vidrio que se desliza entre opciones */
+function placeGlider(box, animate) {
+  let g = box.querySelector(":scope > .glider");
+  const on = box.querySelector(":scope > button.on");
+  if (!on || on.offsetWidth === 0) { if (g) g.style.opacity = "0"; return; }
+  const key = box.id || (box.closest("[id]") ? box.closest("[id]").id + ":" + box.className : "");
+  if (!g) {
+    g = document.createElement("span"); g.className = "glider"; box.prepend(g); box.classList.add("has-glider");
+    g._pos = key && gliderMem[key]; animate = !!g._pos;   // el panel se redibujó: continuar desde donde estaba
+  }
+  const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight };
+  const from = g._pos;
+  if (key) gliderMem[key] = to;
+  g.style.opacity = "1";
+  g.style.width = to.w + "px"; g.style.height = to.h + "px";
+  g.style.transform = `translate(${to.x}px, ${to.y}px)`;
+  g._pos = to;
+  if (!animate || !from || (from.x === to.x && from.y === to.y && from.w === to.w) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const stretch = 1 + Math.min(0.35, dist / 600);
+  const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2, mw = Math.max(from.w, to.w) * stretch;
+  g.classList.add("lens");
+  const a = g.animate([
+    { transform: `translate(${from.x}px, ${from.y}px) scale(1)`, width: from.w + "px", height: from.h + "px" },
+    { transform: `translate(${mx - (mw - (from.w + to.w) / 2) / 2}px, ${my}px) scale(1.08, 1.18)`, width: mw + "px", height: Math.max(from.h, to.h) + "px", offset: 0.45 },
+    { transform: `translate(${to.x}px, ${to.y}px) scale(1.04, .96)`, width: to.w + "px", height: to.h + "px", offset: 0.8 },
+    { transform: `translate(${to.x}px, ${to.y}px) scale(1)`, width: to.w + "px", height: to.h + "px" },
+  ], { duration: 520, easing: "cubic-bezier(.3, .7, .2, 1)" });
+  a.onfinish = () => g.classList.remove("lens");
+}
+let gliderQueued = false, gliderAnimate = false;
+const gliderMem = {};
+function queueGliders(animate) {
+  gliderAnimate = gliderAnimate || animate;
+  if (gliderQueued) return;
+  gliderQueued = true;
+  requestAnimationFrame(() => {
+    gliderQueued = false;
+    const anim = gliderAnimate; gliderAnimate = false;
+    $$(".tabs, .seg").forEach((b) => placeGlider(b, anim));
+  });
+}
+new MutationObserver((muts) => {
+  let classChange = false, structure = false;
+  for (const m of muts) {
+    if (m.type === "attributes" && m.target.tagName === "BUTTON" && m.target.parentElement && m.target.parentElement.matches(".tabs, .seg")) classChange = true;
+    else if (m.type === "childList") structure = true;
+  }
+  if (classChange || structure) queueGliders(classChange);
+}).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+window.addEventListener("resize", () => queueGliders(false));
+
 (async function init() {
   S.meta = await api("GET", "/api/meta");
   await Promise.all([loadProjects(), loadBrands()]);

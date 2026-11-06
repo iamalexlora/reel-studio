@@ -752,3 +752,8 @@ input, textarea, select, [contenteditable="true"], .textin { -webkit-user-select
 .md-in { width: 78px; text-align: center; padding: 6px 8px; font-weight: 600; }
 .upd-head { display: flex; align-items: center; gap: 10px; } .upd-head h2 { margin: 0; }
 #splash:not(.go) *, #splash:not(.go) { animation-play-state: paused !important; }
+
+/* vidrio fluido: solo se mueve con transform; sin desenfoque de fondo mientras viaja */
+.glider { will-change: transform; transform-origin: 50% 50%; }
+.glider.lens, .glide-cards > .glider.lens { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.tabs.has-glider > button, .seg.has-glider > button { transition: color .2s; }

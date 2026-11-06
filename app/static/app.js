@@ -1629,43 +1629,25 @@ function placeGlider(box, animate) {
   // La cápsula se convierte en una lupa de vidrio más grande que la barra, viaja y vuelve a su tamaño.
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
   const cardsBox = box.classList.contains("glide-cards");
-  const dur = Math.min(620, 360 + dist * 0.4);
-  const grow = cardsBox ? 1.04 : Math.min(1.2, 1.1 + dist / 3000);
+  const dur = Math.min(600, 380 + dist * 0.35);
+  const grow = cardsBox ? 0.04 : Math.min(0.2, 0.1 + dist / 3000);
   if (g._anim) g._anim.cancel();
-  if (g._bulge) g._bulge.cancel();
   clearTimeout(g._lensT);
   requestAnimationFrame(() => g.classList.add("lens"));
   g._lensT = setTimeout(() => g.classList.remove("lens"), dur * 0.7);
-  // un solo movimiento continuo (con un leve rebote al llegar) …
-  const a = g._anim = g.animate([
-    { transform: `translate(${from.x}px, ${from.y}px)`, width: from.w + "px", height: from.h + "px" },
-    { transform: `translate(${to.x}px, ${to.y}px)`, width: to.w + "px", height: to.h + "px" },
-  ], { duration: dur, easing: "cubic-bezier(.32, 1.18, .42, 1)" });
-  // … y, sumado encima, el vidrio se infla suave en el camino y vuelve a su tamaño
-  try {
-    g._bulge = g.animate([
-      { transform: "scale(1, 1)" },
-      { transform: `scale(${1 + (grow - 1) * 0.6}, ${grow})`, offset: 0.45 },
-      { transform: "scale(1, 1)" },
-    ], { duration: dur, easing: "ease-in-out", composite: "add" });
-  } catch (_) { /* navegadores sin «composite»: solo el desplazamiento */ }
-  // efecto lupa: las opciones por donde pasa se agrandan
-  const btns = Array.from(box.querySelectorAll(":scope > button")), cards = box.classList.contains("glide-cards");
-  const bRect = box.getBoundingClientRect();
-  const loop = () => {
-    if (a.playState === "finished" || a.playState === "idle") { btns.forEach((b) => (b.style.transform = "")); return; }
-    const r = g.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    for (const b of btns) {
-      const br = b.getBoundingClientRect();
-      const dx = Math.abs(br.left + br.width / 2 - cx) / Math.max(40, r.width * 0.75), dy = Math.abs(br.top + br.height / 2 - cy) / Math.max(20, r.height);
-      const f = Math.max(0, 1 - Math.hypot(dx, dy));
-      b.style.transform = f > 0 ? `scale(${1 + (cards ? 0.035 : 0.09) * f})` : "";
-    }
-    requestAnimationFrame(loop);
-  };
-  requestAnimationFrame(loop);
-  a.onfinish = () => { btns.forEach((b) => (b.style.transform = "")); };
-  void bRect;
+  // Solo «transform» (lo mueve la tarjeta gráfica, sin recalcular la página): 30 cuadros calculados
+  // con una curva suave + un leve inflado en el camino → se ve fluido a 60/120 Hz.
+  const ease = (p) => { const c = 0.7, q = p - 1; return 1 + (c + 1) * q * q * q + c * q * q; };
+  const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2, tcx = to.x + to.w / 2, tcy = to.y + to.h / 2;
+  const frames = [];
+  for (let i = 0; i <= 30; i++) {
+    const p = i / 30, e = ease(p), bl = Math.sin(Math.PI * p) * grow;
+    const w = from.w + (to.w - from.w) * e, h = from.h + (to.h - from.h) * e;
+    const cx = fcx + (tcx - fcx) * e, cy = fcy + (tcy - fcy) * e;
+    frames.push({ transform: `translate(${(cx - to.w / 2).toFixed(2)}px, ${(cy - to.h / 2).toFixed(2)}px) scale(${(w / to.w * (1 + bl * 0.6)).toFixed(4)}, ${(h / to.h * (1 + bl)).toFixed(4)})` });
+  }
+  g.style.transformOrigin = "50% 50%";
+  g._anim = g.animate(frames, { duration: dur, easing: "linear" });
 }
 let gliderQueued = false, gliderAnimate = false;
 const gliderMem = {};

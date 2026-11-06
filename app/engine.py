@@ -525,9 +525,9 @@ def make_clip_media(p: dict, c: dict):
                         "-frames:v", "1", str(d / f"{c['id']}_wave.png")], capture_output=True)
     if needs_proxy(c):
         tmp, out = d / f"{c['id']}_proxy.tmp.mp4", d / f"{c['id']}_proxy.mp4"
-        enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "26"] if has_encoder("libx264") \
-            else ["-c:v", "h264_videotoolbox", "-b:v", "3M"]
-        r = subprocess.run([FFMPEG, "-v", "error", "-y", "-i", str(src), "-vf", "scale=-2:960", *enc,
+        enc = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "19"] if has_encoder("libx264") \
+            else ["-c:v", "h264_videotoolbox", "-b:v", "14M"]
+        r = subprocess.run([FFMPEG, "-v", "error", "-y", "-i", str(src), "-vf", "scale=-2:'min(ih,1920)'", *enc,
                             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
                             str(tmp)], capture_output=True)
         if r.returncode == 0:

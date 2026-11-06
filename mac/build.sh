@@ -30,8 +30,13 @@ codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict "$APP"
 
 echo "▸ Creando el DMG"
-mkdir -p build/dmg
-cp -R "$APP" build/dmg/
-ln -s /Applications build/dmg/Aplicaciones
-hdiutil create -volname "Reel Studio" -srcfolder build/dmg -ov -format UDZO dist/ReelStudio.dmg
+# Fondo con flecha e instrucciones (pantallas normales y Retina en un solo TIFF)
+tiffutil -cathidpicheck mac/dmg/fondo.png mac/dmg/fondo@2x.png -out build/fondo.tiff
+python3 -m venv build/dmgenv
+build/dmgenv/bin/pip install -q dmgbuild
+if ! build/dmgenv/bin/dmgbuild -s mac/dmg/settings.py -D app="$APP" -D bg=build/fondo.tiff "Reel Studio" dist/ReelStudio.dmg; then
+  echo "dmgbuild falló; armo un DMG simple"
+  mkdir -p build/dmg && cp -R "$APP" build/dmg/ && ln -s /Applications build/dmg/Aplicaciones
+  hdiutil create -volname "Reel Studio" -srcfolder build/dmg -ov -format UDZO dist/ReelStudio.dmg
+fi
 ls -la dist

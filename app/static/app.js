@@ -2036,6 +2036,7 @@ window.rsNews = () => showNews(false);
 $("#newsBtn").addEventListener("click", () => showNews(false));
 setTimeout(() => showNews(true), 3200);
 window.__t0 = performance.now();
+try { const snd = new Audio("/static/inicio.m4a"); snd.volume = 0.55; snd.play().catch(() => {}); } catch (_) {}
 (function centerLogo() { // el logo empieza solo en el centro y luego se corre para que salga el nombre
   const lk = document.getElementById("lk"); if (!lk) return;
   const w = lk.querySelector(".lk-word").getBoundingClientRect().width, gap = parseFloat(getComputedStyle(lk).columnGap) || 0;

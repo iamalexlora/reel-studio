@@ -1504,20 +1504,21 @@ function placeGlider(box, animate) {
   if (!animate || !from || (from.x === to.x && from.y === to.y && from.w === to.w) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   // La cápsula se convierte en una lupa de vidrio más grande que la barra, viaja y vuelve a su tamaño.
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
-  const dur = Math.min(720, 430 + dist * 0.6);
-  const grow = Math.min(1.5, 1.28 + dist / 1400);
+  const dur = Math.min(640, 420 + dist * 0.45);
+  const grow = Math.min(1.24, 1.12 + dist / 2400);
   const at = (x, y, w, h, sx, sy) => ({ transform: `translate(${x}px, ${y}px) scale(${sx}, ${sy})`, width: w + "px", height: h + "px" });
-  const mw = (from.w + to.w) / 2 * 1.12;
-  g.classList.add("lens");
+  const mw = (from.w + to.w) / 2 * 1.06;
   if (g._anim) g._anim.cancel();
+  clearTimeout(g._lensT);
+  // el vidrio aparece y desaparece con suavidad (transición CSS), no de golpe
+  requestAnimationFrame(() => g.classList.add("lens"));
+  g._lensT = setTimeout(() => g.classList.remove("lens"), dur * 0.6);
   const a = g._anim = g.animate([
-    at(from.x, from.y, from.w, from.h, 1, 1),
-    { ...at(from.x, from.y, from.w, from.h, 1.12, grow), offset: 0.14 },
-    { ...at((from.x + to.x) / 2 + ((from.w + to.w) / 2 - mw) / 2, (from.y + to.y) / 2, mw, Math.max(from.h, to.h), 1.16, grow * 0.96), offset: 0.5 },
-    { ...at(to.x, to.y, to.w, to.h, 1.12, grow), offset: 0.8 },
-    { ...at(to.x, to.y, to.w, to.h, 0.97, 1.03), offset: 0.92 },
+    { ...at(from.x, from.y, from.w, from.h, 1, 1), easing: "cubic-bezier(.3,0,.3,1)" },
+    { ...at(from.x + (to.x - from.x) * 0.08, from.y, from.w, from.h, 1.05, grow), offset: 0.22, easing: "cubic-bezier(.4,0,.2,1)" },
+    { ...at((from.x + to.x) / 2 + ((from.w + to.w) / 2 - mw) / 2, (from.y + to.y) / 2, mw, Math.max(from.h, to.h), 1.07, grow), offset: 0.55, easing: "cubic-bezier(.2,.6,.2,1)" },
     at(to.x, to.y, to.w, to.h, 1, 1),
-  ], { duration: dur, easing: "cubic-bezier(.32, .72, .25, 1)" });
+  ], { duration: dur });
   // efecto lupa: las opciones por donde pasa se agrandan
   const btns = Array.from(box.querySelectorAll(":scope > button"));
   const bRect = box.getBoundingClientRect();
@@ -1528,12 +1529,12 @@ function placeGlider(box, animate) {
       const br = b.getBoundingClientRect();
       const dx = Math.abs(br.left + br.width / 2 - cx) / Math.max(40, r.width * 0.75), dy = Math.abs(br.top + br.height / 2 - cy) / Math.max(20, r.height);
       const f = Math.max(0, 1 - Math.hypot(dx, dy));
-      b.style.transform = f > 0 ? `scale(${1 + 0.16 * f})` : "";
+      b.style.transform = f > 0 ? `scale(${1 + 0.09 * f})` : "";
     }
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
-  a.onfinish = () => { g.classList.remove("lens"); btns.forEach((b) => (b.style.transform = "")); };
+  a.onfinish = () => { btns.forEach((b) => (b.style.transform = "")); };
   void bRect;
 }
 let gliderQueued = false, gliderAnimate = false;

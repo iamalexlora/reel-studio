@@ -242,10 +242,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         let main = NSMenu()
         let appItem = NSMenuItem(); main.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Acerca de Reel Studio", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Buscar actualizaciones…", action: #selector(checkUpdates), keyEquivalent: "")
-        appMenu.addItem(withTitle: "Token de GitHub…", action: #selector(changeToken), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Acerca de Reel Studio", action: #selector(showAbout), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Ocultar Reel Studio", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(withTitle: "Salir de Reel Studio", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -280,9 +277,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         let upd = NSMenu(title: "Actualizaciones")
         upd.addItem(withTitle: "Buscar actualizaciones…", action: #selector(checkUpdates), keyEquivalent: "u")
         upd.addItem(withTitle: "Ver qué cambió", action: #selector(openChanges), keyEquivalent: "")
-        upd.addItem(.separator())
-        upd.addItem(withTitle: "Token de GitHub…", action: #selector(changeToken), keyEquivalent: "")
         updItem.submenu = upd
+
+        let aboutItem = NSMenuItem(); main.addItem(aboutItem)
+        let about = NSMenu(title: "Acerca de")
+        about.addItem(withTitle: "Acerca de Reel Studio", action: #selector(showAbout), keyEquivalent: "")
+        about.addItem(withTitle: "Créditos y herramientas", action: #selector(showCredits), keyEquivalent: "")
+        about.addItem(.separator())
+        about.addItem(withTitle: "Token de GitHub…", action: #selector(changeToken), keyEquivalent: "")
+        about.addItem(.separator())
+        about.addItem(withTitle: "Mostrar videos exportados", action: #selector(openExports), keyEquivalent: "")
+        about.addItem(withTitle: "Mostrar carpeta de proyectos", action: #selector(openProjects), keyEquivalent: "")
+        aboutItem.submenu = about
         NSApp.mainMenu = main
     }
 
@@ -290,6 +296,60 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         if web.url?.host == "localhost" { web.reload() } else { DispatchQueue.global().async { self.boot() } }
     }
     @objc func openInBrowser() { NSWorkspace.shared.open(appURL) }
+    func versionText() -> String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2"
+        let sha = (try? String(contentsOf: root.appendingPathComponent("VERSION"), encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return sha.isEmpty ? v : "\(v) · \(sha.prefix(7))"
+    }
+    func creditsText() -> NSAttributedString {
+        let body = """
+        Editor de reels para Mac: transcribe, limpia silencios y muletillas, pone subtítulos y animaciones, da color y exporta.
+        Todo se procesa en esta computadora.
+
+        Hecho a pedido de iamalexlora, construido con Claude (Anthropic).
+
+        Herramientas que usa por dentro
+        • FFmpeg: cortes, color, transiciones y exportación (LGPL/GPL)
+        • Whisper de OpenAI vía mlx-whisper: voz a texto (MIT)
+        • HyperFrames de HeyGen: animaciones (Apache 2.0)
+        • GSAP de GreenSock: movimiento de las animaciones (licencia estándar sin costo)
+        • yt-dlp: bajar videos desde enlaces (Unlicense)
+        • Pillow: dibujo de subtítulos (MIT-CMU)
+        • Letras Poppins, Anton y Bebas Neue (SIL Open Font License)
+
+        Usa los enlaces solo con videos tuyos o como referencia de estilo.
+        """
+        let para = NSMutableParagraphStyle(); para.alignment = .left; para.paragraphSpacing = 2
+        return NSAttributedString(string: body, attributes: [.font: NSFont.systemFont(ofSize: 11), .paragraphStyle: para,
+                                                             .foregroundColor: NSColor.labelColor])
+    }
+    @objc func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "Reel Studio",
+            .applicationVersion: versionText(),
+            .version: "",
+            .credits: creditsText(),
+        ])
+    }
+    @objc func showCredits() {
+        let a = NSAlert()
+        a.messageText = "Reel Studio \(versionText())"
+        a.informativeText = creditsText().string
+        a.addButton(withTitle: "Listo")
+        a.addButton(withTitle: "Ver en GitHub")
+        if a.runModal() == .alertSecondButtonReturn {
+            let c = readJSON(root.appendingPathComponent("config/update.json"))
+            let repo = (c["repo"] as? String) ?? "iamalexlora/reel-studio"
+            if let u = URL(string: "https://github.com/\(repo)") { NSWorkspace.shared.open(u) }
+        }
+    }
+    @objc func openExports() {
+        let p = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Movies/Reel Studio")
+        try? FileManager.default.createDirectory(at: p, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(p)
+    }
     @objc func openChanges() {
         let c = readJSON(root.appendingPathComponent("config/update.json"))
         let repo = (c["repo"] as? String) ?? "iamalexlora/reel-studio"

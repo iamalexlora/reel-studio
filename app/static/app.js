@@ -1828,6 +1828,11 @@ $("#gRefFile").addEventListener("change", async (e) => {
   if (!S.P) { const id = await newProject("Mi video"); if (!id) return; }
   await addReference(f); renderGuide();
 });
+$("#gChips").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const t = $("#gPrompt"), add = b.textContent.toLowerCase();
+  t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus();
+});
 $("#gManual").addEventListener("click", (e) => { e.preventDefault(); if (!S.P) return; S.P.guide = false; scheduleSave(); render(); });
 $("#gGo").addEventListener("click", async () => {
   const P = S.P; if (!P || !P.clips.length) return toast("Primero elige tus videos (paso 1).");
@@ -1918,10 +1923,17 @@ window.addEventListener("resize", () => requestAnimationFrame(() => { if (layout
 /* ---------------------------------------------------------------- pantalla de inicio */
 function hideSplash() {
   const sp = $("#splash"); if (!sp || sp.classList.contains("out")) return;
-  const wait = Math.max(0, 2350 - (performance.now() - (window.__t0 || 0)));
+  const wait = Math.max(0, 2500 - (performance.now() - (window.__t0 || 0)));
   setTimeout(() => { sp.classList.add("out"); setTimeout(() => sp.remove(), 1000); }, wait);
 }
 window.__t0 = performance.now();
+(function centerLogo() { // el logo empieza solo en el centro y luego se corre para que salga el nombre
+  const lk = document.getElementById("lk"); if (!lk) return;
+  const w = lk.querySelector(".lk-word").getBoundingClientRect().width, gap = parseFloat(getComputedStyle(lk).columnGap) || 0;
+  lk.style.setProperty("--shift", ((w + gap) / 2).toFixed(1) + "px");
+  lk.querySelectorAll(".lk-in span").forEach((sp) => sp.style.setProperty("--x", (sp.offsetLeft + sp.offsetWidth + 4) + "px"));
+  if (document.fonts && !centerLogo.done) { centerLogo.done = true; document.fonts.load('800 60px "Poppins ExtraBold"').then(centerLogo).catch(() => {}); }
+})();
 setTimeout(hideSplash, 4500);
 
 (async function init() {

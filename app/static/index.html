@@ -11,25 +11,18 @@
 <body>
 <div class="backdrop" aria-hidden="true"></div>
 <div id="splash" aria-hidden="true">
-  <div class="sp-glow"></div>
-  <div class="sp-ring"></div>
-  <svg viewBox="196 280 600 490" class="splash-logo">
-    <defs>
-      <linearGradient id="spen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3E6CF0"/><stop offset="1" stop-color="#2B5BD7"/></linearGradient>
-      <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-      <clipPath id="spclip"><rect x="236" y="300" width="214" height="76" rx="38"/><rect x="478" y="300" width="310" height="76" rx="38"/><rect x="236" y="474" width="420" height="76" rx="38"/><rect x="236" y="648" width="330" height="76" rx="38"/></clipPath>
-    </defs>
-    <g class="sp-mark">
-      <rect class="sb s1" x="236" y="300" width="214" height="76" rx="38" fill="#FFE14D"/>
-      <rect class="sb s2" x="478" y="300" width="310" height="76" rx="38" fill="currentColor"/>
-      <rect class="sb s3" x="236" y="474" width="420" height="76" rx="38" fill="currentColor" fill-opacity=".28"/>
-      <path class="spen" d="M196 532 L 724 488" stroke="url(#spen)" stroke-width="54" stroke-linecap="round" fill="none"/>
-      <rect class="sb s4" x="236" y="648" width="330" height="76" rx="38" fill="currentColor"/>
-      <path class="splay" d="M640 628 L 640 744 Q 640 760 654 752 L 752 698 Q 766 686 752 674 L 654 620 Q 640 612 640 628 Z" fill="currentColor"/>
-      <g clip-path="url(#spclip)"><rect class="sp-sheen" x="100" y="280" width="160" height="470" fill="url(#sheen)"/></g>
-    </g>
-  </svg>
-  <div class="splash-name"><span>R</span><span>e</span><span>e</span><span>l</span><span>&nbsp;</span><span>S</span><span>t</span><span>u</span><span>d</span><span>i</span><span>o</span></div>
+  <div class="lk" id="lk">
+    <svg viewBox="196 280 600 490" class="lk-mark">
+      <defs><linearGradient id="spen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3E6CF0"/><stop offset="1" stop-color="#2B5BD7"/></linearGradient></defs>
+      <rect class="lb b1" x="236" y="300" width="214" height="76" rx="38" fill="#FFE14D"/>
+      <rect class="lb b2" x="478" y="300" width="310" height="76" rx="38" fill="currentColor"/>
+      <rect class="lb b3" x="236" y="474" width="420" height="76" rx="38" fill="currentColor" fill-opacity=".28"/>
+      <path class="lpen" d="M196 532 L 724 488" stroke="url(#spen)" stroke-width="54" stroke-linecap="round" fill="none"/>
+      <rect class="lb b4" x="236" y="648" width="330" height="76" rx="38" fill="currentColor"/>
+      <path class="lplay" d="M640 628 L 640 744 Q 640 760 654 752 L 752 698 Q 766 686 752 674 L 654 620 Q 640 612 640 628 Z" fill="currentColor"/>
+    </svg>
+    <div class="lk-word"><div class="lk-in"><span>R</span><span>e</span><span>e</span><span>l</span><span class="sp">&nbsp;</span><span class="st">S</span><span class="st">t</span><span class="st">u</span><span class="st">d</span><span class="st">i</span><span class="st">o</span></div></div>
+  </div>
 </div>
 <div id="home" hidden>
   <header class="home-top">
@@ -104,6 +97,7 @@
                 <div class="dz-btns"><label class="btn small"><input type="file" id="gRefFile" accept="video/*,.mov,.mp4,.m4v" hidden>Video de referencia</label>
                   <button class="btn small" type="button" data-link="referencia">Pegar enlace</button></div>
                 <div class="fine" id="gRefName"></div>
+                <div class="gchips" id="gChips"><button type="button">Ritmo rápido</button><button type="button">Que se vea elegante</button><button type="button">Subtítulos amarillos</button><button type="button">Música suave de fondo</button><button type="button">Termina invitando a seguirme</button></div>
                 <textarea id="gPrompt" class="textin" rows="3" placeholder="Cuéntame cómo lo quieres. Ej: ritmo rápido como la referencia, subtítulos amarillos, termina invitando a seguirme."></textarea></section>
               <section class="step"><i>4</i><h3>Formato y textos</h3>
                 <div class="fmtcards" id="gFmt"></div>

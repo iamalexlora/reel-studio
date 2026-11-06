@@ -175,7 +175,7 @@ function recompute() {
   if (!S.P) return;
   S.plan = computePlan(S.P);
   S.groups = captionGroups(S.P);
-  $("#durLabel").innerHTML = S.P.clips.length ? `<b>${fmt(S.plan.total)}</b> · ${S.P.clips.length} clip${S.P.clips.length === 1 ? "" : "s"}` : "";
+  $("#durLabel").innerHTML = S.P.clips.length ? `<b>${fmt(S.plan.total)}</b><span class="clips-n"> · ${S.P.clips.length} clip${S.P.clips.length === 1 ? "" : "s"}</span>` : "";
   $("#tcTotal").textContent = fmt(S.plan.total);
   renderTimeline();
 }
@@ -245,9 +245,15 @@ async function openProject(id) {
   try { P = await api("GET", "/api/projects/" + id); } catch (_) { toast("No encontré ese proyecto."); location.hash = ""; return; }
   const isNew = !S.P || S.P.id !== id;
   S.P = P; S.dirty = false;
-  if (isNew) { S.history = []; S.sel = null; S.selClip = null; S.selBroll = null; S.selJunction = null; S.outT = 0; stop(); S.useRender = false; S.exp = null; $("#renderBadge").hidden = true; }
+  if (isNew) { clearScreen(); S.history = []; S.sel = null; S.selClip = null; S.selBroll = null; S.selJunction = null; S.outT = 0; stop(); S.useRender = false; S.exp = null; $("#renderBadge").hidden = true; }
   render();
   if (isNew) seek(0);
+}
+
+function clearScreen() {
+  [vA, vB, vBr].forEach((v) => { v.pause(); v.classList.remove("on"); v.dataset.clip = ""; v.removeAttribute("src"); v.load(); });
+  $("#cardImg").style.display = "none"; $("#cardImg").removeAttribute("src");
+  $("#logoImg").style.display = "none"; $("#cap").innerHTML = ""; S.cur = null; S.capKey = null; music.pause();
 }
 
 /* ---------------------------------------------------------------- render general */
@@ -255,6 +261,7 @@ function render() {
   const P = S.P;
   $("#projTitle").disabled = !P; $("#projTitle").value = P ? P.name : "";
   $("#dropZone").hidden = !!(P && P.clips.length);
+  $("#viewer").classList.toggle("empty", !(P && P.clips.length));
   $("#dzTitle").textContent = P ? "Agrega tus videos" : "Crea tu primer proyecto";
   $("#dzText").textContent = P ? "Arrastra aquí las tomas: hablando, de dron o de cámara. Puedes agregar más cuando quieras."
     : "Arrastra aquí tus videos (tomas hablando, de dron o de cámara). Se procesan en tu computadora; nada se sube a internet.";

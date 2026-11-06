@@ -1345,6 +1345,17 @@ $("#updateBtn").addEventListener("click", async () => {
   } catch (e) { toast("No se pudo actualizar: " + e.message, 6000); b.disabled = false; b.textContent = "Actualización disponible"; }
 });
 setInterval(checkUpdate, 30 * 60 * 1000);
+$("#checkUpdBtn").addEventListener("click", async () => {
+  const b = $("#checkUpdBtn"); b.disabled = true; b.textContent = "Buscando…";
+  try {
+    const u = await api("GET", "/api/update");
+    if (!u.configured) toast("Las actualizaciones no están configuradas en esta computadora.", 5000);
+    else if (u.error) toast("No pude revisar GitHub: revisa tu internet o el token (menú Reel Studio → Token de GitHub).", 6000);
+    else if (u.available) { $("#updateBtn").hidden = false; $("#updateBtn").click(); }
+    else toast("Ya tienes la última versión.");
+  } catch (e) { toast("No pude buscar actualizaciones: " + e.message, 5000); }
+  b.disabled = false; b.textContent = "Buscar actualizaciones";
+});
 
 (async function init() {
   S.meta = await api("GET", "/api/meta");

@@ -2046,7 +2046,7 @@ window.__t0 = performance.now();
     if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
   };
   try {
-    const snd = new Audio("/static/inicio.m4a"); snd.preload = "auto"; snd.volume = 0.5;
+    const snd = new Audio("/static/inicio.m4a"); snd.preload = "auto"; snd.volume = 0.8;
     snd.addEventListener("canplaythrough", () => go(snd), { once: true });
     snd.load();
     setTimeout(() => go(null), 800);

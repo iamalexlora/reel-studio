@@ -1549,6 +1549,8 @@ $("#checkUpdBtn").addEventListener("click", async () => {
 });
 
 /* cápsula de vidrio que se desliza entre opciones */
+const CARD_SEL = ".vibes, .fmtcards, .looks, .presets, .formats, .trans";
+const GLIDE_SEL = ".tabs, .seg, " + CARD_SEL;
 function placeGlider(box, animate) {
   let g = box.querySelector(":scope > .glider");
   const on = box.querySelector(":scope > button.on");
@@ -1556,6 +1558,7 @@ function placeGlider(box, animate) {
   const key = box.id || (box.closest("[id]") ? box.closest("[id]").id + ":" + box.className : "");
   if (!g) {
     g = document.createElement("span"); g.className = "glider"; box.prepend(g); box.classList.add("has-glider");
+    if (box.matches(CARD_SEL)) box.classList.add("glide-cards");
     g._pos = key && gliderMem[key]; animate = !!g._pos;
   }
   const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight };
@@ -1569,7 +1572,7 @@ function placeGlider(box, animate) {
   // La cápsula se convierte en una lupa de vidrio más grande que la barra, viaja y vuelve a su tamaño.
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
   const dur = Math.min(640, 420 + dist * 0.45);
-  const grow = Math.min(1.24, 1.12 + dist / 2400);
+  const grow = box.classList.contains("glide-cards") ? 1.05 : Math.min(1.24, 1.12 + dist / 2400);
   const at = (x, y, w, h, sx, sy) => ({ transform: `translate(${x}px, ${y}px) scale(${sx}, ${sy})`, width: w + "px", height: h + "px" });
   const mw = (from.w + to.w) / 2 * 1.06;
   if (g._anim) g._anim.cancel();
@@ -1584,7 +1587,7 @@ function placeGlider(box, animate) {
     at(to.x, to.y, to.w, to.h, 1, 1),
   ], { duration: dur });
   // efecto lupa: las opciones por donde pasa se agrandan
-  const btns = Array.from(box.querySelectorAll(":scope > button"));
+  const btns = Array.from(box.querySelectorAll(":scope > button")), cards = box.classList.contains("glide-cards");
   const bRect = box.getBoundingClientRect();
   const loop = () => {
     if (a.playState === "finished" || a.playState === "idle") { btns.forEach((b) => (b.style.transform = "")); return; }
@@ -1593,7 +1596,7 @@ function placeGlider(box, animate) {
       const br = b.getBoundingClientRect();
       const dx = Math.abs(br.left + br.width / 2 - cx) / Math.max(40, r.width * 0.75), dy = Math.abs(br.top + br.height / 2 - cy) / Math.max(20, r.height);
       const f = Math.max(0, 1 - Math.hypot(dx, dy));
-      b.style.transform = f > 0 ? `scale(${1 + 0.09 * f})` : "";
+      b.style.transform = f > 0 ? `scale(${1 + (cards ? 0.035 : 0.09) * f})` : "";
     }
     requestAnimationFrame(loop);
   };
@@ -1610,13 +1613,13 @@ function queueGliders(animate) {
   requestAnimationFrame(() => {
     gliderQueued = false;
     const anim = gliderAnimate; gliderAnimate = false;
-    $$(".tabs, .seg").forEach((b) => placeGlider(b, anim));
+    $$(GLIDE_SEL).forEach((b) => placeGlider(b, anim));
   });
 }
 new MutationObserver((muts) => {
   let classChange = false, structure = false;
   for (const m of muts) {
-    if (m.type === "attributes" && m.target.tagName === "BUTTON" && m.target.parentElement && m.target.parentElement.matches(".tabs, .seg")) classChange = true;
+    if (m.type === "attributes" && m.target.tagName === "BUTTON" && m.target.parentElement && m.target.parentElement.matches(GLIDE_SEL)) classChange = true;
     else if (m.type === "childList") structure = true;
   }
   if (classChange || structure) queueGliders(classChange);

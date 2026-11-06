@@ -1323,7 +1323,25 @@ function renderMarca() {
 
 /* ---------------------------------------------------------------- pestaña Formato */
 const MAXDUR = [[0, "Sin límite"], [15, "15 s"], [30, "30 s"], [45, "45 s"], [60, "1 min"], [90, "1:30"], [180, "3 min"]];
-function maxDurSeg(id, cur) { cur = +cur || 0; return `<div class="seg" id="${id}">${MAXDUR.map(([v, l]) => `<button type="button" data-v="${v}" class="${cur === v ? "on" : ""}">${l}</button>`).join("")}</div>`; }
+const fmtDur = (v) => (+v ? (v >= 60 ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")} min` : `${v} s`) : "Sin límite");
+function maxDurSeg(id, cur) {
+  cur = +cur || 0;
+  return `<div class="maxdur" id="${id}"><div class="md-top"><b class="md-val">${fmtDur(cur)}</b><span class="fine">Arrastra o toca un tiempo</span></div>
+    <input type="range" min="0" max="180" step="1" value="${cur}" aria-label="Duración máxima">
+    <div class="md-chips">${MAXDUR.map(([v, l]) => `<button type="button" data-v="${v}" class="${cur === v ? "on" : ""}">${l}</button>`).join("")}</div></div>`;
+}
+function setMaxDur(box, v, commit) {
+  v = Math.round(+v || 0); if (v > 0 && v < 5) v = 5;
+  box.querySelector(".md-val").textContent = fmtDur(v);
+  box.querySelector("input").value = v;
+  box.querySelectorAll(".md-chips button").forEach((b) => b.classList.toggle("on", +b.dataset.v === v));
+  if (!S.P) return;
+  S.P.settings.maxDur = v;
+  if (commit) { if (box.id === "maxSeg") { changed(); seek(Math.min(S.outT, S.plan.total)); } else scheduleSave(); }
+}
+document.addEventListener("input", (e) => { const box = e.target.closest(".maxdur"); if (box && e.target.type === "range") setMaxDur(box, e.target.value, false); });
+document.addEventListener("change", (e) => { const box = e.target.closest(".maxdur"); if (box && e.target.type === "range") { pushHistory(); setMaxDur(box, e.target.value, true); } });
+document.addEventListener("click", (e) => { const b = e.target.closest(".maxdur .md-chips button"); if (b) { pushHistory(); setMaxDur(b.closest(".maxdur"), b.dataset.v, true); } });
 function fmtShort(k) { return k === "vertical" ? "9:16" : k === "horizontal" ? "16:9" : k === "cuadrado" ? "1:1" : k; }
 function renderFormato() {
   const P = S.P, s = P.settings, box = $("#t-formato");
@@ -1337,7 +1355,6 @@ function renderFormato() {
       ${slider("cxR", "Mover el encuadre (horizontal)", s.cropX, 0, 1, 0.01, Math.round(s.cropX * 100) + " %")}${slider("cyR", "Mover el encuadre (vertical)", s.cropY, 0, 1, 0.01, Math.round(s.cropY * 100) + " %")}
       <p class="fine">Cada clip puede tener su propio encuadre en la pestaña Clips.</p></div>` : ""}
     <div class="sec"><h3>Tus clips</h3>${P.clips.map((c) => `<p class="fine">«${esc(c.name)}»: ${c.width || "?"}×${c.height || "?"} · ${c.fps ? Math.round(c.fps) : "?"} fps${c.hdr ? " · HDR" : ""}</p>`).join("") || '<p class="fine">Sin clips todavía.</p>'}</div>`;
-  $("#maxSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.maxDur = +b.dataset.v; changed(); seek(Math.min(S.outT, S.plan.total)); };
   $("#fmtGrid").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.format = b.dataset.f; changed(); sizeScreen(); seek(S.outT); };
   if ($("#fitSeg")) $("#fitSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.fit = b.dataset.v; changed(); seek(S.outT); };
   bindRange("cxR", (v) => { s.cropX = v; seek(S.outT); }, (v) => Math.round(v * 100) + " %");
@@ -1866,7 +1883,7 @@ function renderGuide() {
   const ref = P && P.reference;
   $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
-  if (P && $("#gMax") && !$("#gMax").querySelector("button")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
+  if (P && $("#gMax") && !$("#gMax").querySelector("input")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
   if (P && !S._gSubsInit) { $("#gSubs").checked = P.settings.subtitles !== false; S._gSubsInit = true; }
   const ready = !!(P && P.clips.length);
   $("#gGo").disabled = !ready;
@@ -1889,11 +1906,6 @@ $("#gChips").addEventListener("click", (e) => {
   const t = $("#gPrompt"), add = b.textContent.toLowerCase();
   t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus();
 });
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("#gMax button"); if (!b) return;
-  $$("#gMax button").forEach((x) => x.classList.toggle("on", x === b));
-  if (S.P) { S.P.settings.maxDur = +b.dataset.v; scheduleSave(); }
-});
 $("#gManual").addEventListener("click", (e) => { e.preventDefault(); if (!S.P) return; S.P.guide = false; scheduleSave(); render(); });
 $("#gGo").addEventListener("click", async () => {
   const P = S.P; if (!P || !P.clips.length) return toast("Primero elige tus videos (paso 1).");
@@ -1904,7 +1916,7 @@ $("#gGo").addEventListener("click", async () => {
   }
   const fmtB = $("#gFmt button.on");
   runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,
-    maxDur: +(($("#gMax button.on") || {}).dataset?.v || 0),
+    maxDur: +(($("#gMax input") || {}).value || 0),
     clean: true, subtitles: $("#gSubs").checked, anims: $("#gAnims").checked, highlight: true, prompt });
   $("#gPrompt").value = "";
 });

@@ -734,3 +734,17 @@ html.mac-app .rz-side, html.mac-app .rz-insp { margin-top: 0; }
 /* el texto del programa no se selecciona al arrastrar; solo donde se escribe */
 body { -webkit-user-select: none; user-select: none; }
 input, textarea, select, [contenteditable="true"], .textin { -webkit-user-select: text; user-select: text; }
+
+/* pasos: el contenido ocupa todo el ancho (solo el título va junto al número) */
+.step { padding: 16px 18px 18px; }
+.step > i { left: 16px; top: 14px; }
+.step > h3 { padding-left: 42px; min-height: 28px; display: flex; align-items: center; margin: 0 0 4px; }
+/* duración máxima interactiva */
+.maxdur { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--field); border: 1px solid var(--line); }
+.md-top { display: flex; justify-content: space-between; align-items: baseline; }
+.md-val { font-size: 20px; letter-spacing: -.02em; color: var(--accent); }
+.md-top .fine { margin: 0; }
+.maxdur input[type=range] { width: 100%; accent-color: var(--accent); }
+.md-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.md-chips button { flex: 1 1 auto; border: 1px solid var(--line); background: transparent; color: inherit; font: 600 12px/1 var(--font); padding: 7px 8px; border-radius: 999px; cursor: pointer; transition: background .2s, border-color .2s; }
+.md-chips button.on { background: var(--accent); border-color: transparent; color: #fff; }

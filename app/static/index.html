@@ -31,11 +31,19 @@
   </svg>
   <div class="splash-name"><span>R</span><span>e</span><span>e</span><span>l</span><span>&nbsp;</span><span>S</span><span>t</span><span>u</span><span>d</span><span>i</span><span>o</span></div>
 </div>
+<div id="home" hidden>
+  <header class="home-top">
+    <div class="home-brand"><img src="/static/logo.svg" alt="" width="40" height="40"><div><b>Reel Studio</b><span>Tus videos, listos para redes</span></div></div>
+    <button class="btn magic big" id="homeNew" type="button">＋ Nuevo proyecto</button>
+  </header>
+  <h2 class="home-h">Tus proyectos</h2>
+  <div class="home-grid" id="homeGrid"></div>
+</div>
 <div id="app">
 
   <!-- barra lateral -->
   <aside class="sidebar glass">
-    <div class="brandrow"><img src="/static/logo.svg" alt="" width="30" height="30"><span>Reel Studio</span></div>
+    <div class="brandrow" id="goHome" title="Ir a mis proyectos" role="button" tabindex="0"><img src="/static/logo.svg" alt="" width="30" height="30"><span>Reel Studio</span></div>
     <button class="btn primary wide" id="newProjBtn">Nuevo proyecto</button>
     <div class="side-h">Proyectos</div>
     <nav id="projList" class="projlist" aria-label="Proyectos"></nav>

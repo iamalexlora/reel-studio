@@ -205,11 +205,7 @@ $("#projList").addEventListener("click", async (e) => {
   const p = S.projects.find((x) => x.id === d.dataset.del);
   if (!confirm(`¿Borrar «${p ? p.name : ""}» con sus videos y exportaciones? No se puede deshacer.`)) return;
   await api("DELETE", "/api/projects/" + d.dataset.del);
-  if (S.P && S.P.id === d.dataset.del) {
-    stop(); S.useRender = false; S.previewReady = null; $("#renderBadge").hidden = true; clearScreen();
-    for (const id in animFrames) { animFrames[id].remove(); delete animFrames[id]; }
-    S.P = null; S.plan = null; S.history = []; history.replaceState(null, "", location.pathname); render();
-  }
+  if (S.P && S.P.id === d.dataset.del) { await loadProjects(); showHome(); return; }
   loadProjects();
 });
 $("#brandList").addEventListener("click", async (e) => {
@@ -243,8 +239,48 @@ async function newProject(defaultName = "") {
 }
 $("#newProjBtn").addEventListener("click", () => newProject());
 
+/* ---------------------------------------------------------------- inicio: mis proyectos */
+function closeProject() {
+  stop(); S.useRender = false; S.previewReady = null; $("#renderBadge").hidden = true; clearScreen();
+  for (const id in animFrames) { animFrames[id].remove(); delete animFrames[id]; }
+  S.P = null; S.plan = null; S.history = [];
+}
+function renderHome() {
+  const g = $("#homeGrid"), L = S.projects || [];
+  const ago = (t) => { const d = (Date.now() / 1000 - t) / 86400; return d < 1 ? "hoy" : d < 2 ? "ayer" : d < 30 ? `hace ${Math.floor(d)} días` : new Date(t * 1000).toLocaleDateString("es"); };
+  g.innerHTML = `<button class="hcard new" data-new="1"><span class="plus">＋</span><b>Nuevo proyecto</b><span class="fine">Sube tus videos y te guío paso a paso</span></button>` +
+    L.map((p) => `<a class="hcard" href="#${p.id}" data-open="${p.id}">
+      <span class="hthumb" style="${p.thumb ? `background-image:url(/media/${p.id}/file/${p.thumb}_thumb.jpg)` : ""}">${p.thumb ? "" : '<span class="fine">Sin videos aún</span>'}</span>
+      <span class="hinfo"><b>${esc(p.name)}</b><span class="fine">${p.clips} clip${p.clips === 1 ? "" : "s"} · ${fmt(p.outDuration)} · ${ago(p.updated)}</span></span>
+      <button class="hdel" data-hdel="${p.id}" title="Borrar proyecto" aria-label="Borrar ${esc(p.name)}">✕</button></a>`).join("");
+}
+async function showHome() {
+  if (S.P) { try { await flushSave(); } catch (_) {} }
+  closeProject();
+  if (location.hash) history.replaceState(null, "", location.pathname);
+  $("#home").hidden = false; document.body.classList.add("at-home");
+  render(); await loadProjects(); renderHome();
+}
+function hideHome() { $("#home").hidden = true; document.body.classList.remove("at-home"); }
+$("#homeGrid").addEventListener("click", async (e) => {
+  const del = e.target.closest("[data-hdel]");
+  if (del) {
+    e.preventDefault(); e.stopPropagation();
+    const p = S.projects.find((x) => x.id === del.dataset.hdel);
+    if (!confirm(`¿Borrar «${p ? p.name : ""}» con sus videos y exportaciones? No se puede deshacer.`)) return;
+    await api("DELETE", "/api/projects/" + del.dataset.hdel); await loadProjects(); renderHome(); return;
+  }
+  if (e.target.closest("[data-new]")) { newProject(); return; }
+  const a = e.target.closest("[data-open]");
+  if (a) { e.preventDefault(); history.replaceState(null, "", "#" + a.dataset.open); openProject(a.dataset.open); }
+});
+$("#homeNew").addEventListener("click", () => newProject());
+$("#goHome").addEventListener("click", showHome);
+$("#goHome").addEventListener("keydown", (e) => { if (e.key === "Enter") showHome(); });
+
 async function openProject(id) {
-  if (!id) { S.P = null; render(); return; }
+  if (!id) { showHome(); return; }
+  hideHome();
   let P;
   try { P = await api("GET", "/api/projects/" + id); } catch (_) { toast("No encontré ese proyecto."); location.hash = ""; return; }
   const isNew = !S.P || S.P.id !== id;
@@ -1879,8 +1915,8 @@ setTimeout(hideSplash, 4500);
 (async function init() {
   S.meta = await api("GET", "/api/meta");
   await Promise.all([loadProjects(), loadBrands()]);
-  const id = location.hash.slice(1) || (S.projects[0] && S.projects[0].id);
-  if (id) { if (!location.hash) history.replaceState(null, "", "#" + id); await openProject(id); } else render();
+  const id = location.hash.slice(1);
+  if (id) await openProject(id); else await showHome();
   applyLayout(); sizeScreen(); hideSplash(); refreshAnimStatus();
   const ro = new ResizeObserver(() => { sizeScreen(); if (S.P) { renderTimeline(); drawFrame(); } placeResizers(); });
   ro.observe($("#screenWrap")); ro.observe($("#timeline")); ro.observe($(".stage"));

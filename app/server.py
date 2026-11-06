@@ -293,6 +293,7 @@ def make_video(pid: str, o: dict) -> dict:
             st = q["settings"]
             if o.get("format") in E.FORMATS:
                 st["format"] = o["format"]
+            q["guide"] = False
             st["pace"] = vibe["pace"]
             if o.get("maxDur") is not None:
                 st["maxDur"] = max(0, int(o.get("maxDur") or 0))

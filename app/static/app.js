@@ -1881,6 +1881,38 @@ function renderMakeOv() {
   ov.querySelector(".mk-msg").textContent = j.message || "Preparando…";
   ov.querySelector(".mk-eta").textContent = etaText(j);
 }
+/* al terminar: resumen de lo que se hizo y la línea de tiempo resaltada */
+function showMadeSummary() {
+  const P = S.P; if (!P) return;
+  const st = P.settings, cuts = (P.words || []).filter((w) => w.cut).length;
+  const main = S.plan ? S.plan.items.filter((i) => i.kind === "clip").length : 0;
+  const look = ((S.meta.looks || {})[st.grade && st.grade.look] || {}).label;
+  const tr = st.transition && st.transition.type;
+  const facts = [
+    [fmt(S.plan ? S.plan.total : 0), "duración"],
+    [main, main === 1 ? "toma" : "tomas"],
+    [(P.broll || []).length, "de apoyo"],
+    [cuts, "palabras cortadas"],
+    [(P.anims || []).length, "animaciones"],
+  ];
+  let card = $("#madeCard"); if (card) card.remove();
+  card = document.createElement("div"); card.id = "madeCard"; card.className = "made glass";
+  card.innerHTML = `<div class="made-h"><b>✦ Tu video está listo</b><button class="upd-x" aria-label="Cerrar">×</button></div>
+    <div class="made-facts">${facts.map(([v, l]) => `<span><b>${v}</b><small>${l}</small></span>`).join("")}</div>
+    <p class="fine">${look ? `Look «${esc(look)}»` : ""}${tr ? ` · transición «${esc(tr)}»` : ""}${st.subtitles ? " · subtítulos" : ""}. Todo está en la línea de tiempo: toca cualquier parte para cambiarla.</p>
+    <div class="made-btns"><button class="btn small" id="madeEdit">Ver la edición</button><button class="btn small primary" id="madeExp">Exportar</button></div>`;
+  $("#viewer").appendChild(card);
+  card.querySelector(".upd-x").onclick = () => card.remove();
+  card.querySelector("#madeEdit").onclick = () => { card.remove(); setRender(false); $("#renderToggle").checked = false; flashTimeline(); };
+  card.querySelector("#madeExp").onclick = () => { card.remove(); $("#exportBtn").click(); };
+  flashTimeline();
+}
+function flashTimeline() {
+  $("#tlScroll").scrollLeft = 0;
+  const blks = $$("#timeline .blk, #laneMusic > *");
+  blks.forEach((b, i) => { b.classList.remove("fresh"); void b.offsetWidth; b.style.animationDelay = Math.min(i * 70, 900) + "ms"; b.classList.add("fresh"); });
+  setTimeout(() => blks.forEach((b) => { b.classList.remove("fresh"); b.style.animationDelay = ""; }), 2600);
+}
 async function trackMakes(jobs) {
   const now = {};
   jobs.filter((x) => x.kind === "make").forEach((x) => (now[x.project] = x));
@@ -1894,7 +1926,7 @@ async function trackMakes(jobs) {
       renderMakeOv(); await openProject(pid);
       S.previewReady = pid; $("#renderToggleWrap").hidden = false; $("#renderToggle").checked = true;
       seek(0); setRender(true); play();
-      toast("¡Listo! Así queda tu video. Cambia lo que quieras y exporta.", 5000);
+      showMadeSummary();
     } else toast(`✓ «${name}» está listo. Ábrelo desde tus proyectos.`, 6000);
   }
   Object.assign(S.makeJobs, now);

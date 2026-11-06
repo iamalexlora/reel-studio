@@ -66,8 +66,23 @@ def check() -> dict:
         lt = latest(c)
     except Exception as ex:
         return {"configured": True, "available": False, "current": current(), "error": str(ex)}
-    return {"configured": True, "available": lt["sha"] != current(), "current": current(),
-            "latest": lt["sha"], "message": lt["message"], "date": lt["date"]}
+    avail = lt["sha"] != current()
+    news = []
+    if avail:  # lo nuevo, escrito en lenguaje simple (app/static/novedades.json de la versión nueva)
+        try:
+            import base64
+            j = _get(f"https://api.github.com/repos/{c['repo']}/contents/app/static/novedades.json?ref={lt['sha']}", c)
+            remote = json.loads(base64.b64decode(j["content"]).decode())
+            mine = []
+            loc = ROOT / "app" / "static" / "novedades.json"
+            if loc.exists():
+                mine = json.loads(loc.read_text())
+            seen = {json.dumps(x, sort_keys=True) for x in mine}
+            news = [x for x in remote if json.dumps(x, sort_keys=True) not in seen][:3] or remote[:1]
+        except Exception:
+            news = []
+    return {"configured": True, "available": avail, "current": current(),
+            "latest": lt["sha"], "message": lt["message"], "date": lt["date"], "news": news}
 
 
 def apply(log=print) -> dict:

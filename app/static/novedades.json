@@ -1,11 +1,21 @@
 [
  {
+  "v": "2.8",
+  "date": "6 nov 2026",
+  "title": "Duración a tu medida",
+  "items": [
+   "Elige cuánto dura tu video: con el deslizador, con un toque o escribiendo el tiempo exacto (ej. 1:40).",
+   "Al buscar actualizaciones ves qué trae la versión nueva antes de instalarla.",
+   "Los textos del programa ya no se seleccionan al arrastrar.",
+   "Pasos del inicio mejor ordenados."
+  ]
+ },
+ {
   "v": "2.7",
   "date": "5 nov 2026",
   "title": "Más pulido y más rápido de usar",
   "items": [
    "Nueva pantalla de proyectos y transiciones suaves entre pantallas.",
-   "Elige la duración máxima de tu video: 15 s, 30 s, 1 min y más.",
    "10 estilos para «Hacer mi video»: Viral, Energético, Cinemático, Corporativo, Cálido, Vintage, Blanco y negro y más.",
    "Instalador con instrucciones claras para abrir el programa la primera vez.",
    "Animación de inicio y de cierre renovadas.",

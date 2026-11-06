@@ -1547,7 +1547,7 @@ function showUpdPill() {
     pill.innerHTML = '<span class="upd-dot"></span><div class="upd-txt"><b>Hay una versión nueva</b><span id="updMsg"></span></div>' +
       '<button class="btn primary small" id="updGo">Actualizar</button><button class="upd-x" id="updLater" aria-label="Más tarde">×</button>';
     document.body.appendChild(pill);
-    $("#updGo").addEventListener("click", runUpdate);
+    $("#updGo").addEventListener("click", () => openUpdDlg(updInfo));
     $("#updLater").addEventListener("click", () => { updDismissed = updInfo ? updInfo.latest : ""; pill.classList.remove("show"); });
   }
   $("#updMsg").textContent = "Mejoras y novedades. Toca para instalarla en segundos.";
@@ -1582,7 +1582,14 @@ async function runUpdate() {
     fail("La versión nueva se instaló pero tardó en abrir. Cierra y vuelve a abrir Reel Studio.");
   } catch (e) { fail("No se pudo actualizar: " + e.message); }
 }
-$("#updateBtn").addEventListener("click", runUpdate);
+$("#updateBtn").addEventListener("click", () => openUpdDlg(updInfo));
+function openUpdDlg(u) {
+  const news = (u && u.news && u.news.length) ? u.news : [{ title: "Mejoras y novedades", items: ["Mejoras de funcionamiento y estabilidad."] }];
+  $("#updNews").innerHTML = news.map((n, i) => `<section class="${i === 0 ? "first" : ""}">${n.v ? `<div class="nv"><b>Versión ${esc(n.v)}</b><span>${esc(n.date || "")}</span></div>` : ""}
+    <h3>${esc(n.title)}</h3><ul>${(n.items || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></section>`).join("");
+  const d = $("#updDlg"); if (!d.open) d.showModal();
+}
+$("#updDlgGo").addEventListener("click", () => { $("#updDlg").close(); runUpdate(); });
 setInterval(checkUpdate, 3 * 60 * 1000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
 window.addEventListener("focus", () => checkUpdate());
@@ -1592,7 +1599,7 @@ $("#checkUpdBtn").addEventListener("click", async () => {
     const u = await api("GET", "/api/update?force=1");
     if (!u.configured) toast("Las actualizaciones no están configuradas en esta computadora.", 5000);
     else if (u.error) toast("No pude buscar actualizaciones. Revisa tu conexión a internet e inténtalo de nuevo.", 6000);
-    else if (u.available) { updInfo = u; $("#updateBtn").hidden = false; runUpdate(); }
+    else if (u.available) { updInfo = u; $("#updateBtn").hidden = false; showUpdPill(); openUpdDlg(u); }
     else toast("Ya tienes la última versión.");
   } catch (e) { toast("No pude buscar actualizaciones: " + e.message, 5000); }
   b.disabled = false; b.textContent = "Buscar actualizaciones";

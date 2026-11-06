@@ -315,7 +315,7 @@ async function openProject(id) {
   try { P = await api("GET", "/api/projects/" + id); } catch (_) { toast("No encontré ese proyecto."); location.hash = ""; return; }
   const isNew = !S.P || S.P.id !== id;
   S.P = P; S.dirty = false;
-  if (isNew) { clearScreen(); S.history = []; S.sel = null; S.selClip = null; S.selBroll = null; S.selJunction = null; S.outT = 0; stop(); S.useRender = false; S.exp = null; $("#renderBadge").hidden = true; }
+  if (isNew) { clearScreen(); S.history = []; S.future = []; S.sel = null; S.selClip = null; S.selBroll = null; S.selJunction = null; S.outT = 0; stop(); S.useRender = false; S.exp = null; $("#renderBadge").hidden = true; }
   render();
   if (isNew) seek(0);
 }
@@ -349,7 +349,7 @@ function render() {
   ["#exportBtn", "#previewBtn"].forEach((s) => ($(s).disabled = !(S.plan && S.plan.items.length)));
   $("#assembleBtn").disabled = !P.clips.some((c) => ["listo", "sin voz", "sin transcribir"].includes(c.status));
   $("#playBtn").disabled = !(S.plan && S.plan.items.length);
-  $("#undoBtn").disabled = !S.history.length;
+  histButtons();
   $("#renderToggleWrap").hidden = !S.previewReady || S.previewReady !== P.id;
   const pend = (P.requests || []).filter((r) => r.status === "pendiente").length;
   $("#reqBadge").hidden = !pend; $("#reqBadge").textContent = pend;
@@ -371,18 +371,44 @@ $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button
 /* ---------------------------------------------------------------- guardar, deshacer, sincronizar */
 function snapshot() {
   const P = S.P;
-  return JSON.stringify({ w: P.words.map((w) => [w.cut, w.by, w.reason, w.text]), tl: P.timeline, br: P.broll, se: P.settings, st: P.style,
+  return JSON.stringify({ w: P.words.map((w) => [w.cut, w.by, w.reason, w.text]), tl: P.timeline, br: P.broll, se: P.settings, st: P.style, an: P.anims || [],
     cl: P.clips.map((c) => ({ id: c.id, adjust: c.adjust, gain: c.gain, fit: c.fit, cropX: c.cropX, cropY: c.cropY, speech: c.speech, muted: !!c.muted })) });
 }
-function pushHistory() { if (!S.P) return; S.history.push(snapshot()); if (S.history.length > 80) S.history.shift(); $("#undoBtn").disabled = false; }
+S.future = [];
+function histButtons() { $("#undoBtn").disabled = !S.history.length; $("#redoBtn").disabled = !S.future.length; }
+function pushHistory() { if (!S.P) return; S.history.push(snapshot()); if (S.history.length > 80) S.history.shift(); S.future = []; histButtons(); }
+function restore(snap) {
+  const h = JSON.parse(snap), P = S.P;
+  h.w.forEach((x, i) => { const w = P.words[i]; if (w) [w.cut, w.by, w.reason, w.text] = x; });
+  P.timeline = h.tl; P.broll = h.br; P.settings = h.se; P.style = h.st; if (h.an) P.anims = h.an;
+  h.cl.forEach((x) => { const c = clipOf(x.id); if (c) Object.assign(c, x); });
+}
 function undo() {
   if (!S.history.length || !S.P) return;
-  const h = JSON.parse(S.history.pop()), P = S.P;
-  h.w.forEach((x, i) => { const w = P.words[i]; if (w) [w.cut, w.by, w.reason, w.text] = x; });
-  P.timeline = h.tl; P.broll = h.br; P.settings = h.se; P.style = h.st;
-  h.cl.forEach((x) => { const c = clipOf(x.id); if (c) Object.assign(c, x); });
-  $("#undoBtn").disabled = !S.history.length;
+  S.future.push(snapshot()); restore(S.history.pop()); histButtons();
   changed(); toast("Deshecho");
+}
+function redo() {
+  if (!S.future.length || !S.P) return;
+  S.history.push(snapshot()); restore(S.future.pop()); histButtons();
+  changed(); toast("Rehecho");
+}
+/* borrar lo que está seleccionado en la línea de tiempo (se recupera con ⌘Z) */
+function deleteSelected() {
+  const P = S.P; if (!P) return false;
+  if (S.selAnim) { pushHistory(); P.anims = P.anims.filter((a) => a.id !== S.selAnim); S.selAnim = null; changed(); toast("Animación quitada · ⌘Z para recuperarla"); return true; }
+  if (S.selBroll) { pushHistory(); P.broll = P.broll.filter((x) => x.id !== S.selBroll); S.selBroll = null; changed(); toast("Toma de apoyo quitada · ⌘Z para recuperarla"); return true; }
+  if (S.selClip) {
+    const n = P.timeline.filter((t) => t.clip === S.selClip).length; if (!n) return false;
+    if (P.timeline.length <= 1) { toast("Es la única toma del video: no se puede quitar."); return true; }
+    pushHistory();
+    const ti = S.selTi;
+    if (Number.isInteger(ti) && P.timeline[ti] && P.timeline[ti].clip === S.selClip) P.timeline.splice(ti, 1); // solo esa toma
+    else P.timeline = P.timeline.filter((t) => t.clip !== S.selClip);
+    S.selClip = null; S.selTi = null; changed(); renderTimeline();
+    toast("Toma quitada de la línea de tiempo · ⌘Z para recuperarla"); return true;
+  }
+  return false;
 }
 function changed(skipPanel) {
   recompute();
@@ -853,7 +879,7 @@ function renderTimeline() {
     if (itm.kind === "card") mh += `<div class="blk card" data-card="${itm.card}" style="left:${left}px;width:${w}px"><span>${itm.card === "intro" ? "Intro" : "Cierre"}</span></div>`;
     else {
       const c = clipOf(itm.clip);
-      mh += `<div class="blk ${S.selClip === itm.clip && !S.selBroll ? "sel" : ""}" data-item="${itm.clip}" style="left:${left}px;width:${w}px;background-image:url(/media/${P.id}/file/${itm.clip}_strip.jpg)">
+      mh += `<div class="blk ${S.selClip === itm.clip && !S.selBroll ? "sel" : ""}" data-item="${itm.clip}" data-ti="${S.plan.items.filter((x) => x.kind === "clip").indexOf(itm)}" style="left:${left}px;width:${w}px;background-image:url(/media/${P.id}/file/${itm.clip}_strip.jpg)">
         ${itm.speech ? '<b class="voice">VOZ</b>' : ""}<span>${esc(c ? c.name : itm.clip)}</span></div>`;
     }
     if (j > 0) mh += `<div class="tchip ${S.selJunction === j ? "on" : ""}" data-junction="${j}" style="left:${(itm.start + itm.tdur / 2) * pps}px" title="${TRANS_LABEL[itm.ttype] || "Corte"}"></div>`;
@@ -905,7 +931,7 @@ $("#laneMain").addEventListener("pointerdown", (e) => {
     window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up);
     if (!moved) {
       if (S.selClip === id && !S.selBroll) { clearSelection(); return; } // segundo clic: suelta el clip
-      S.selClip = id; S.selBroll = null;
+      S.selClip = id; S.selBroll = null; S.selTi = +blk.dataset.ti;
       const itm = S.plan.items.find((i) => i.clip === id);
       if (itm) seek(itm.start + 0.01);
       renderTimeline(); showTab("t-clip"); return;
@@ -1535,6 +1561,7 @@ $("#expList").addEventListener("click", (e) => { const b = e.target.closest("[da
 /* ---------------------------------------------------------------- varios */
 $("#projTitle").addEventListener("change", (e) => { if (!S.P) return; S.P.name = e.target.value.trim() || "Proyecto"; scheduleSave(); setTimeout(loadProjects, 900); });
 $("#undoBtn").addEventListener("click", undo);
+$("#redoBtn").addEventListener("click", redo);
 function clearSelection() {
   setSel(null); S.selJunction = null; S.selClip = null; S.selBroll = null; S.selAnim = null;
   renderTimeline(); if (S.tab === "t-clip") renderClips(); if (S.tab === "t-color") renderColor(); if (S.tab === "t-anim") renderAnim();
@@ -1549,11 +1576,12 @@ window.addEventListener("keydown", (e) => {
     clearSelection(); return;
   }
   if (["input", "select", "textarea"].includes(tag) || document.querySelector("dialog[open]")) return;
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
   if (!S.P) return;
   if (e.key === " ") { e.preventDefault(); togglePlay(); return; }
   if ((e.key === "Backspace" || e.key === "Delete") && S.sel && S.tab === "t-texto") { e.preventDefault(); const idx = rangeIdx(); setCut(idx, !idx.every((i) => S.P.words[i].cut)); return; }
-  if ((e.key === "Backspace" || e.key === "Delete") && S.selBroll) { e.preventDefault(); pushHistory(); S.P.broll = S.P.broll.filter((x) => x.id !== S.selBroll); S.selBroll = null; changed(); return; }
+  if ((e.key === "Backspace" || e.key === "Delete") && (S.selBroll || S.selAnim || S.selClip)) { e.preventDefault(); deleteSelected(); return; }
   if (e.key === "ArrowLeft" && !S.sel) seek(S.outT - (e.shiftKey ? 5 : 1 / 3));
   if (e.key === "ArrowRight" && !S.sel) seek(S.outT + (e.shiftKey ? 5 : 1 / 3));
 });

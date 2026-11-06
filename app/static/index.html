@@ -61,7 +61,10 @@
     <div class="spacer"></div>
     <div class="dur" id="durLabel"></div>
     <div class="savestate" id="saveState" aria-live="polite"></div>
-    <button class="btn ghost" id="undoBtn" title="Deshacer (⌘Z)" disabled>Deshacer</button>
+    <div class="histbtns">
+      <button class="hbtn" id="undoBtn" title="Deshacer (⌘Z)" aria-label="Deshacer" disabled><svg viewBox="0 0 24 24"><path d="M9 7H5V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 7.5A8 8 0 1 1 4.2 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button class="hbtn" id="redoBtn" title="Rehacer (⇧⌘Z)" aria-label="Rehacer" disabled><svg viewBox="0 0 24 24"><path d="M15 7h4V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 7.5A8 8 0 1 0 19.8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
     <button class="btn magic" id="makeBtn" disabled title="Un solo paso: limpia, arma, da color, pone subtítulos, música y animaciones">✦ Hacer mi video</button>
     <button class="btn" id="assembleBtn" disabled title="Ordena los clips: voz como principal, el resto como apoyo o montaje">Armar video</button>
   </header>

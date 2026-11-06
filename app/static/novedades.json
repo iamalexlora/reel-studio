@@ -5,6 +5,7 @@
   "title": "Duración a tu medida",
   "items": [
    "Elige cuánto dura tu video: con el deslizador, con un toque o escribiendo el tiempo exacto (ej. 1:40).",
+   "Borra lo que elijas en la línea de tiempo con la tecla de borrar; ⌘Z deshace y ⇧⌘Z rehace, con botones nuevos arriba.",
    "Narración (voz en off): sube tu audio y el video se arma sobre tu voz, con subtítulos.",
    "Elige si usas el audio de tus videos; sin audio no se transcribe nada de más.",
    "Los cortes dentro de un mismo video se tapan con tomas de apoyo o con un acercamiento leve, para que no se note el salto.",

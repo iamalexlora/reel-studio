@@ -104,7 +104,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
-        window.title = "Reel Studio"
+        window.title = "Reel Studio"          // se usa en el menú Ventana y Mission Control
+        window.titleVisibility = .hidden        // pero no se muestra arriba
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(name: nil) { ap in
+            ap.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(red: 0.043, green: 0.043, blue: 0.047, alpha: 1)
+                                                                : NSColor(red: 0.788, green: 0.796, blue: 0.816, alpha: 1)
+        }
         window.minSize = NSSize(width: 900, height: 600)
         window.contentView = web
         window.center()

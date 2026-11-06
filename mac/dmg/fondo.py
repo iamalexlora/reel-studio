@@ -11,13 +11,14 @@ ICON_Y = 128  # debe coincidir con settings.py
 def make(scale: int, out: Path):
     W, H = W0 * scale, H0 * scale
     s = lambda v: int(v * scale)  # noqa: E731
+    # parte de arriba clara (Finder escribe los nombres de los íconos en negro) y abajo oscura
     img = Image.new("RGB", (W, H), "#0B0B0C")
-    glow = Image.new("RGB", (W, H), "#0B0B0C")
-    g = ImageDraw.Draw(glow)
-    g.ellipse([s(-120), s(-220), s(420), s(200)], fill="#13213F")
-    g.ellipse([s(300), s(-240), s(820), s(180)], fill="#1D1838")
-    glow = glow.filter(ImageFilter.GaussianBlur(s(90)))
-    img = Image.blend(img, glow, 0.9)
+    top = Image.new("RGB", (W, s(206)), "#E4E5E9")
+    tg = ImageDraw.Draw(top)
+    for i in range(s(206)):
+        c = int(236 - 18 * i / s(206))
+        tg.line([0, i, W, i], fill=(c, c, c + 4))
+    img.paste(top, (0, 0))
     d = ImageDraw.Draw(img)
     F = lambda name, size: ImageFont.truetype(str(FONTS / name), s(size))  # noqa: E731
     title, head, step, stepb = F("Poppins-ExtraBold.ttf", 19), F("Poppins-ExtraBold.ttf", 16), \
@@ -27,7 +28,7 @@ def make(scale: int, out: Path):
         w = d.textlength(text, font=font)
         d.text(((W - w) / 2, y), text, font=font, fill=fill)
 
-    center("1 · Arrastra Reel Studio a Aplicaciones", s(18), title, "#F5F5F7")
+    center("1 · Arrastra Reel Studio a Aplicaciones", s(16), title, "#1D1D1F")
     y = s(ICON_Y)
     d.line([s(250), y, s(398), y], fill="#3E6CF0", width=s(5))
     d.polygon([(s(410), y), (s(394), y - s(11)), (s(394), y + s(11))], fill="#3E6CF0")

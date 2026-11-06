@@ -16,3 +16,4 @@ show_sidebar = False
 icon_size = 96
 text_size = 13
 arrange_by = None
+hide_extensions = ["Reel Studio.app"]

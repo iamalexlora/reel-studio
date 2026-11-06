@@ -298,7 +298,7 @@ $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button
 function snapshot() {
   const P = S.P;
   return JSON.stringify({ w: P.words.map((w) => [w.cut, w.by, w.reason, w.text]), tl: P.timeline, br: P.broll, se: P.settings, st: P.style,
-    cl: P.clips.map((c) => ({ id: c.id, adjust: c.adjust, gain: c.gain, fit: c.fit, cropX: c.cropX, cropY: c.cropY, speech: c.speech })) });
+    cl: P.clips.map((c) => ({ id: c.id, adjust: c.adjust, gain: c.gain, fit: c.fit, cropX: c.cropX, cropY: c.cropY, speech: c.speech, muted: !!c.muted })) });
 }
 function pushHistory() { if (!S.P) return; S.history.push(snapshot()); if (S.history.length > 80) S.history.shift(); $("#undoBtn").disabled = false; }
 function undo() {
@@ -324,8 +324,8 @@ async function save() {
   const P = S.P;
   try {
     const r = await api("PUT", "/api/projects/" + P.id, { rev: P.rev, words: P.words, settings: P.settings, style: P.style, name: P.name,
-      timeline: P.timeline, broll: P.broll, requests: P.requests,
-      clips: P.clips.map((c) => ({ id: c.id, name: c.name, adjust: c.adjust || {}, gain: c.gain || 0, fit: c.fit, cropX: c.cropX, cropY: c.cropY, speech: c.speech })) });
+      timeline: P.timeline, broll: P.broll, requests: P.requests, reference: P.reference,
+      clips: P.clips.map((c) => ({ id: c.id, name: c.name, adjust: c.adjust || {}, gain: c.gain || 0, fit: c.fit, cropX: c.cropX, cropY: c.cropY, speech: c.speech, muted: !!c.muted })) });
     if (r.__conflict) { S.saving = false; await openProject(P.id); toast("El proyecto cambió mientras editabas (Claude o una transcripción); cargué la versión nueva.", 4200); return; }
     P.rev = r.rev; $("#saveState").textContent = "Guardado";
   } catch (e) { $("#saveState").textContent = "Sin guardar"; toast("No pude guardar: " + e.message); S.dirty = true; }
@@ -454,6 +454,7 @@ function show(loc) {
   if (Math.abs(v.currentTime - loc.clipT) > 0.05) v.currentTime = loc.clipT;
   v.style.filter = videoFilter(id);
   const c = clipOf(id), st = P.settings, G = geom();
+  v.muted = !!c.muted;
   const sameAR = c.width && Math.abs(c.width / c.height - G.W / G.H) < 0.01;
   const fit = c.fit || st.fit;
   v.style.objectFit = sameAR || fit === "llenar" ? "cover" : "contain";
@@ -947,7 +948,7 @@ function renderClips() {
     const role = roleOf(c.id), st = !["listo", "sin voz"].includes(c.status) ? "procesando…" : `${fmt(c.duration)} · ${c.width}×${c.height} · ${Math.round(c.fps)} fps${c.hdr ? " · HDR" : ""}`;
     return `<div class="clipcard ${S.selClip === c.id ? "on" : ""}" data-clip="${c.id}">
       <img src="/media/${P.id}/file/${c.id}_thumb.jpg" alt="" onerror="this.style.visibility='hidden'">
-      <div><b>${esc(c.name)}</b><small><span class="tag ${c.speech ? "voz" : ""}">${c.speech ? "Voz" : "Imagen"}</span><span class="tag">${{ principal: "Principal", apoyo: "Apoyo", fuera: "Sin usar" }[role]}</span>${st}</small></div></div>`;
+      <div><b>${esc(c.name)}</b><small><span class="tag ${c.speech ? "voz" : ""}">${c.speech ? "Voz" : "Imagen"}</span><span class="tag">${{ principal: "Principal", apoyo: "Apoyo", fuera: "Sin usar" }[role]}</span>${c.muted ? '<span class="tag">Sin audio</span>' : ""}${st}</small></div></div>`;
   }).join("");
   let det = "";
   const c = S.selClip && clipOf(S.selClip);
@@ -958,7 +959,8 @@ function renderClips() {
       <div class="field"><label>Uso en el video</label><div class="seg" id="roleSeg">
         <button data-v="principal" class="${role === "principal" ? "on" : ""}">Principal</button><button data-v="apoyo" class="${role === "apoyo" ? "on" : ""}">Apoyo encima</button><button data-v="fuera" class="${role === "fuera" ? "on" : ""}">No usar</button></div>
         <p class="fine">${c.speech ? "Tiene voz: como principal se usan su audio y sus subtítulos." : "Sin voz: como principal entra como toma de montaje; como apoyo se ve encima de quien habla."}</p></div>
-      <div class="row-f"><label for="speechOn">Tratar como clip con voz</label><input type="checkbox" class="switch" id="speechOn" ${c.speech ? "checked" : ""}></div>`;
+      <div class="row-f"><label for="speechOn">Tratar como clip con voz</label><input type="checkbox" class="switch" id="speechOn" ${c.speech ? "checked" : ""}></div>
+      <div class="row-f"><label for="muteOn">Quitar el audio de este clip</label><input type="checkbox" class="switch" id="muteOn" ${c.muted ? "checked" : ""}></div>`;
     if (role === "principal" && it) {
       det += slider("inR", "Desde", it.in, 0, c.duration, 0.1, fmt(it.in)) + slider("outR", "Hasta", it.out, 0, c.duration, 0.1, fmt(it.out));
       if (!c.speech) det += `<div class="row-f"><label for="fullOn">Usar todo el tramo (sin recortar al ritmo)</label><input type="checkbox" class="switch" id="fullOn" ${it.full ? "checked" : ""}></div>`;
@@ -993,6 +995,7 @@ function renderClips() {
     changed();
   };
   $("#speechOn").onchange = (e) => { pushHistory(); c.speech = e.target.checked; changed(); };
+  bindToggle("muteOn", (v) => { c.muted = v; activeVideo().muted = activeVideo().dataset.clip === c.id ? v : activeVideo().muted; });
   const it = P.timeline.find((t) => t.clip === c.id), b = S.selBroll && P.broll.find((x) => x.id === S.selBroll);
   if (it) { bindRange("inR", (v) => (it.in = Math.min(v, it.out - 0.3)), fmt); bindRange("outR", (v) => (it.out = Math.max(v, it.in + 0.3)), fmt); }
   bindToggle("fullOn", (v) => (it.full = v));
@@ -1044,7 +1047,13 @@ function renderAudio() {
     <div class="row-f"><label for="mBeat">Cortar las tomas al ritmo</label><input type="checkbox" class="switch" id="mBeat" ${m.beatSync ? "checked" : ""}></div>
     ${slider("mStart", "Empezar la canción desde", m.start, 0, Math.max(1, (m.duration || 60) - 5), 0.5, fmt(m.start))}
     ${slider("mIn", "Entrada suave", m.fadeIn, 0, 5, 0.1, num(m.fadeIn, 1) + " s")}${slider("mOut", "Salida suave", m.fadeOut, 0, 6, 0.1, num(m.fadeOut, 1) + " s")}`;
-  box.innerHTML = `<div class="sec"><h3>Música de fondo</h3>${mus}</div>
+  const withAudio = P.clips.filter((c) => c.hasAudio);
+  const allMuted = withAudio.length && withAudio.every((c) => c.muted);
+  const clipAudio = `<div class="sec"><h3>Audio de los videos</h3>
+    <div class="row-f"><label for="muteAll">Quitar el audio de todos los videos</label><input type="checkbox" class="switch" id="muteAll" ${allMuted ? "checked" : ""}></div>
+    <div class="card-list">${withAudio.map((c) => `<div class="row-f" style="margin:4px 0"><label for="mu_${c.id}" style="font-weight:500">${esc(c.name)}${c.speech ? ' <span class="tag voz">Voz</span>' : ""}</label><input type="checkbox" class="switch" id="mu_${c.id}" ${c.muted ? "" : "checked"} title="Audio activado"></div>`).join("")}</div>
+    <p class="fine">Interruptor encendido = se escucha el audio original. Útil para tomas de dron o cámara con viento o ruido.</p></div>`;
+  box.innerHTML = `<div class="sec"><h3>Música de fondo</h3>${mus}</div>${clipAudio}
     <div class="sec"><h3>Voz</h3>
     <div class="row-f"><label for="silOn">Quitar silencios</label><input type="checkbox" class="switch" id="silOn" ${st.removeSilences ? "checked" : ""}></div>
     ${slider("pauseR", "Pausa más larga permitida", st.maxPause, 0.1, 1.2, 0.05, num(st.maxPause) + " s")}
@@ -1055,6 +1064,8 @@ function renderAudio() {
   bindRange("mVol", (v) => (m.volume = v), (v) => Math.round(v * 100) + " %");
   bindRange("mStart", (v) => (m.start = v), fmt); bindRange("mIn", (v) => (m.fadeIn = v), (v) => num(v, 1) + " s"); bindRange("mOut", (v) => (m.fadeOut = v), (v) => num(v, 1) + " s");
   bindRange("pauseR", (v) => (st.maxPause = v), (v) => num(v) + " s"); bindRange("padR", (v) => (st.padding = v), (v) => num(v) + " s");
+  bindToggle("muteAll", (v) => withAudio.forEach((c) => (c.muted = v)));
+  withAudio.forEach((c) => bindToggle("mu_" + c.id, (v) => (c.muted = !v)));
   bindToggle("mDuck", (v) => (m.duck = v)); bindToggle("mBeat", (v) => (m.beatSync = v)); bindToggle("silOn", (v) => (st.removeSilences = v));
 }
 
@@ -1196,10 +1207,22 @@ function renderRef() {
       <div class="fact"><b>${num(a.avgShot, 1)} s</b><small>dura cada toma (promedio)</small></div>
       <div class="fact"><b>${S.meta.looks[a.look].label}</b><small>look de color parecido</small></div>
       <div class="fact"><b>${fmtShort(a.format)}</b><small>${a.width}×${a.height}${a.tempo ? ` · ${Math.round(a.tempo)} BPM` : ""}</small></div></div>
-    <button class="btn primary wide" id="refApply">Aplicar este estilo a mi proyecto</button>
-    <p class="fine">Cambia formato, duración de las tomas, transición y color. Se puede deshacer con ⌘Z.</p>
-    <div class="tip" style="margin-top:12px">Para que Claude la estudie a fondo (encuadres, textos, música), escribe un pedido en la pestaña Pedidos, por ejemplo: «Arma el video siguiendo la referencia».</div>`
-    : `<p class="fine">Analizando la referencia…</p>`}`;
+    <button class="btn wide" id="refApply">Aplicar solo el estilo (automático)</button>
+    <p class="fine">Cambia formato, duración de las tomas, transición y color. Se puede deshacer con ⌘Z.</p>`
+    : `<p class="fine">Analizando la referencia…</p>`}
+    <div class="sec" style="margin-top:16px"><h3>Cómo quieres tu video</h3>
+      <p class="fine">Describe qué armar con tus clips usando esta referencia como guía. Claude lo lee junto con la referencia y arma el video.</p>
+      <textarea id="refPrompt" placeholder="Ej.: un reel de 30 s para el cliente, empieza con la toma de dron más llamativa, ritmo rápido como la referencia, el texto clave en el segundo 3 y cierra con el logo">${esc(ref.prompt || "")}</textarea>
+      <button class="btn primary wide" id="refSend" style="margin-top:8px">Armar con la referencia y estas instrucciones</button>
+      <p class="fine">Luego dile a Claude en el chat: <b>«revisa mis pedidos de Reel Studio»</b>.</p></div>`;
+  $("#refPrompt").oninput = (e) => { ref.prompt = e.target.value; scheduleSave(); };
+  $("#refSend").onclick = async () => {
+    const t = $("#refPrompt").value.trim();
+    if (!t) { toast("Escribe primero cómo quieres el video."); return; }
+    await flushSave();
+    S.P = await api("POST", `/api/projects/${P.id}/requests`, { text: t, kind: "referencia" });
+    render(); toast("Listo. Ahora dile a Claude: «revisa mis pedidos de Reel Studio».", 5000);
+  };
   $("#refIn").onchange = (e) => e.target.files[0] && addReference(e.target.files[0]);
   $("#refDel").onclick = async () => { await flushSave(); S.P = await api("DELETE", `/api/projects/${P.id}/reference`); render(); };
   if ($("#refApply")) $("#refApply").onclick = async () => { await flushSave(); pushHistory(); S.P = await api("POST", `/api/projects/${P.id}/apply-reference`); render(); seek(S.outT); toast("Apliqué el estilo de la referencia."); };

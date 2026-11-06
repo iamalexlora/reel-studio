@@ -69,6 +69,14 @@ clic en `instalar.command` (la instalación necesita su contraseña para Homebre
    El archivo queda en `~/ReelStudio/proyectos/ID/exports/`. Puedes mostrarlo con `open -R "<ruta>"`.
    El render puede durar varios minutos: lánzalo con `nohup` si el shell tiene límite de tiempo.
 
+## Pedidos del usuario (v2)
+
+- `$R pedidos` lista lo que el usuario escribió en la app. Los que empiezan con «[Armar con la
+  referencia]» piden armar el video siguiendo la referencia: lee `$R referencia ID` (números) y,
+  si hace falta, mira la hoja de fotogramas que indica; luego usa `$R clips ID`, `armar`, `orden`,
+  `recorte`, `apoyo`, `transicion`, `color`, `musica`, `marca` y `silenciar`.
+- Al terminar cada pedido: `$R hecho ID PEDIDO "qué hiciste, en una frase"`.
+
 ## Gastar pocos créditos
 
 - No mires el video ni sus fotogramas: todo se decide con `$R texto ID`, que es texto compacto.

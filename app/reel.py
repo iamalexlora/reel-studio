@@ -22,6 +22,7 @@ SECUENCIA
   orden ID c3 c1 c2                          orden de los clips principales
   recorte ID c2 --entrada 1.5 --salida 7     qué parte del clip se usa
   rol ID c4 principal|apoyo|fuera            mueve un clip entre la secuencia, los apoyos o fuera
+  silenciar ID c2 si|no                      quita o devuelve el audio original de un clip
   apoyo ID c4 --en 6.5 --dur 2.5 [--desde 1] agrega/ajusta una toma de apoyo (segundos del video final)
   quitar-apoyo ID APOYO
   transicion ID --tipo disolver --dur 0.4 [--clip c3]   corte|disolver|negro|blanco|barrido|zoom|difuminar
@@ -180,6 +181,7 @@ def main():
     a = sp.add_parser("orden"); a.add_argument("id"); a.add_argument("clips", nargs="+")
     a = sp.add_parser("recorte"); a.add_argument("id"); a.add_argument("clip")
     a.add_argument("--entrada", type=float); a.add_argument("--salida", type=float); a.add_argument("--completo", choices=["si", "no"])
+    a = sp.add_parser("silenciar"); a.add_argument("id"); a.add_argument("clip"); a.add_argument("estado", choices=["si", "no"])
     a = sp.add_parser("rol"); a.add_argument("id"); a.add_argument("clip"); a.add_argument("rol", choices=["principal", "apoyo", "fuera"])
     a = sp.add_parser("apoyo"); a.add_argument("id"); a.add_argument("clip")
     a.add_argument("--en", type=float, required=True); a.add_argument("--dur", type=float, default=2.5)
@@ -366,6 +368,12 @@ def main():
             p["broll"].append({"id": uuid.uuid4().hex[:6], "clip": args.clip, "at": args.en, "dur": args.dur,
                                "srcIn": args.desde})
             E.add_log(p, "claude", f"Puse «{c['name']}» de apoyo en {args.en:.1f}s ({args.dur:.1f}s).")
+        elif cmd == "silenciar":
+            c = E.clip_by_id(p, args.clip)
+            if not c:
+                sys.exit("No existe ese clip.")
+            c["muted"] = args.estado == "si"
+            E.add_log(p, "claude", f"{'Quité' if c['muted'] else 'Devolví'} el audio de «{c['name']}».")
         elif cmd == "quitar-apoyo":
             p["broll"] = [b for b in p["broll"] if b["id"] != args.apoyo]
         elif cmd == "transicion":

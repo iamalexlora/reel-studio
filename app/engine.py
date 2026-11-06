@@ -1509,7 +1509,7 @@ def render_piece(p: dict, segs, c: dict, ctx: dict, out: Path, with_audio: bool)
     v += f",format={work_fmt}[v]"
     graph = [v]
     cmd = ["-i", str(src)]
-    if with_audio and c.get("hasAudio"):
+    if with_audio and c.get("hasAudio") and not c.get("muted"):
         n = len(segs)
         gain = float(c.get("gain", 0))
         graph.append(f"[0:a]asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,asplit={n}"
@@ -1633,7 +1633,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
             c = clip_by_id(p, itm["clip"])
             src = clip_path(p, c)
             key = _piece_key(base_key, "clip", c["id"], src.stat().st_mtime, itm["segs"], c.get("adjust"),
-                             c.get("gain"), c.get("fit"), c.get("cropX"), c.get("cropY"))
+                             c.get("gain"), c.get("fit"), c.get("cropX"), c.get("cropY"), c.get("muted"))
             f = pieces_dir / f"{key}.mov"
             if not f.exists():
                 render_piece(p, itm["segs"], c, ctx, f, with_audio=True)

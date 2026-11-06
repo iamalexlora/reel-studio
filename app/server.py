@@ -477,7 +477,10 @@ class H(BaseHTTPRequestHandler):
                 return r
             return self.send_json(run_job(j, work))
         if action == "requests":
-            text = (self.body_json().get("text") or "").strip()
+            body = self.body_json()
+            text = (body.get("text") or "").strip()
+            if body.get("kind") == "referencia":
+                text = "[Armar con la referencia] " + text
             if not text:
                 return self.send_json({"error": "Escribe el pedido."}, 400)
 
@@ -503,7 +506,7 @@ class H(BaseHTTPRequestHandler):
                 body = self.body_json()
                 cur = E.load(parts[2])
                 base = int(body.get("rev", -1))
-                for k in ("words", "settings", "style", "name", "timeline", "broll", "requests"):
+                for k in ("words", "settings", "style", "name", "timeline", "broll", "requests", "reference"):
                     if k in body:
                         cur[k] = body[k]
                 if "clips" in body:   # solo campos editables de cada clip
@@ -511,7 +514,7 @@ class H(BaseHTTPRequestHandler):
                     for c in cur["clips"]:
                         e = edits.get(c["id"])
                         if e:
-                            for k in ("name", "adjust", "gain", "fit", "cropX", "cropY", "speech"):
+                            for k in ("name", "adjust", "gain", "fit", "cropX", "cropY", "speech", "muted"):
                                 if k in e:
                                     c[k] = e[k]
                 try:

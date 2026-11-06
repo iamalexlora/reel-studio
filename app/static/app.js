@@ -261,7 +261,20 @@ async function showHome() {
   $("#home").hidden = false; document.body.classList.add("at-home");
   render(); await loadProjects(); renderHome();
 }
-function hideHome() { $("#home").hidden = true; document.body.classList.remove("at-home"); }
+function hideHome() {
+  const h = $("#home"); if (h.hidden) return;
+  document.body.classList.remove("at-home");
+  h.classList.add("closing"); playEnter("enter");
+  setTimeout(() => { h.hidden = true; h.classList.remove("closing"); }, 320);
+}
+function playEnter(cls) {
+  const app = $("#app"); app.classList.remove("enter", "reveal"); void app.offsetWidth; app.classList.add(cls);
+  clearTimeout(playEnter.t); playEnter.t = setTimeout(() => app.classList.remove(cls), 1100);
+}
+window.rsClose = function () {
+  const bye = document.createElement("div"); bye.id = "bye"; bye.innerHTML = `<svg viewBox="196 280 600 490"><rect x="236" y="300" width="214" height="76" rx="38" fill="#FFE14D"/><rect x="478" y="300" width="310" height="76" rx="38" fill="currentColor"/><rect x="236" y="474" width="420" height="76" rx="38" fill="currentColor" fill-opacity=".28"/><path d="M196 532 L 724 488" stroke="#3E6CF0" stroke-width="54" stroke-linecap="round"/><rect x="236" y="648" width="330" height="76" rx="38" fill="currentColor"/><path d="M640 628 L 640 744 Q 640 760 654 752 L 752 698 Q 766 686 752 674 L 654 620 Q 640 612 640 628 Z" fill="currentColor"/></svg>`;
+  document.body.appendChild(bye); document.body.classList.add("closing-app");
+};
 $("#homeGrid").addEventListener("click", async (e) => {
   const del = e.target.closest("[data-hdel]");
   if (del) {
@@ -303,6 +316,8 @@ function render() {
   const guiding = !P || !P.clips.length || P.guide === true;
   $("#dropZone").hidden = !guiding;
   $("#viewer").classList.toggle("empty", guiding);
+  if (S._wasGuiding && !guiding && P) playEnter("reveal");
+  S._wasGuiding = guiding;
   $("#app").classList.toggle("guiding", guiding);
   if (guiding) renderGuide();
   if (!P) {

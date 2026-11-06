@@ -658,3 +658,23 @@ body.at-home #app { visibility: visible; pointer-events: none; }
 .btn.magic.big#homeNew { font-size: 14px; padding: 10px 18px; }
 .home-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
 .hcard.new { min-height: 180px; }
+
+/* ---------- transiciones entre pantallas ---------- */
+#home.closing .home-win { animation: homeOut .32s cubic-bezier(.5,0,.75,0) forwards; }
+#home.closing { transition: opacity .32s; opacity: 0; }
+@keyframes homeOut { to { opacity: 0; transform: scale(1.06); filter: blur(6px); } }
+#app.enter { animation: appIn .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes appIn { from { opacity: 0; transform: scale(.975); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+#app.reveal .toolbar, #app.reveal .viewer, #app.reveal .timeline, #app.reveal .inspector, #app.reveal .sidebar { animation: panelIn .6s cubic-bezier(.2,.8,.2,1) both; }
+#app.reveal .sidebar { animation-delay: 0s; } #app.reveal .toolbar { animation-delay: .04s; } #app.reveal .viewer { animation-delay: .1s; }
+#app.reveal .timeline { animation-delay: .18s; } #app.reveal .inspector { animation-delay: .24s; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: none; } }
+
+/* cierre */
+body.closing-app #app, body.closing-app #home { animation: appOut .45s cubic-bezier(.5,0,.75,0) forwards; }
+@keyframes appOut { to { opacity: 0; transform: scale(.94); filter: blur(10px); } }
+#bye { color: var(--ink); position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; background: var(--bg); opacity: 0; animation: byeBg .3s .2s ease forwards; pointer-events: none; }
+#bye svg { width: 150px; height: auto; overflow: visible; animation: byeLogo .55s .15s cubic-bezier(.3,1.4,.5,1) both; }
+@keyframes byeBg { to { opacity: 1; } }
+@keyframes byeLogo { 0% { opacity: 0; transform: scale(.6); } 55% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0; transform: scale(.8); } }
+@media (prefers-reduced-motion: reduce) { #app.enter, #app.reveal *, body.closing-app #app, #bye svg { animation: none !important; } }

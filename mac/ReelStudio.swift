@@ -87,7 +87,8 @@ func statusPage(_ title: String, _ text: String, spinner: Bool = true) -> String
 
 // MARK: - app
 
-class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate, NSWindowDelegate {
+    var closing = false
     var window: NSWindow!
     var web: WKWebView!
     var booting = false
@@ -104,6 +105,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
+        window.delegate = self
         window.title = "Reel Studio"          // se usa en el menú Ventana y Mission Control
         window.titleVisibility = .hidden        // pero no se muestra arriba
         window.titlebarAppearsTransparent = true
@@ -420,8 +422,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
             a.addButton(withTitle: "Salir igual")
             if a.runModal() == .alertFirstButtonReturn { return .terminateCancel }
         }
-        run("/bin/bash", [root.appendingPathComponent("stop.sh").path])
-        return .terminateNow
+        if closing { return .terminateNow }
+        closing = true
+        // animación de cierre: el editor se despide y la ventana se desvanece
+        web.evaluateJavaScript("window.rsClose && window.rsClose()", completionHandler: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.25
+                self.window.animator().alphaValue = 0
+            }, completionHandler: {
+                DispatchQueue.global().async {
+                    run("/bin/bash", [root.appendingPathComponent("stop.sh").path])
+                    DispatchQueue.main.async { NSApp.reply(toApplicationShouldTerminate: true) }
+                }
+            })
+        }
+        return .terminateLater
+    }
+
+    // El botón rojo también cierra con la animación (la ventana sigue visible mientras tanto).
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if closing { return true }
+        NSApp.terminate(nil)
+        return false
     }
 
     // MARK: WKUIDelegate — selector de archivos, alertas, enlaces externos

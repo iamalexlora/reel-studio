@@ -2036,7 +2036,22 @@ window.rsNews = () => showNews(false);
 $("#newsBtn").addEventListener("click", () => showNews(false));
 setTimeout(() => showNews(true), 3200);
 window.__t0 = performance.now();
-try { const snd = new Audio("/static/inicio.m4a"); snd.volume = 0.55; snd.play().catch(() => {}); } catch (_) {}
+// El logo y el sonido arrancan juntos: la animación espera a que el audio esté listo (máximo 0,8 s)
+(function startSplash() {
+  const sp = document.getElementById("splash"); if (!sp) return;
+  let started = false;
+  const go = (snd) => {
+    if (started) return; started = true;
+    window.__t0 = performance.now(); sp.classList.add("go");
+    if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
+  };
+  try {
+    const snd = new Audio("/static/inicio.m4a"); snd.preload = "auto"; snd.volume = 0.5;
+    snd.addEventListener("canplaythrough", () => go(snd), { once: true });
+    snd.load();
+    setTimeout(() => go(null), 800);
+  } catch (_) { go(null); }
+})();
 (function centerLogo() { // el logo empieza solo en el centro y luego se corre para que salga el nombre
   const lk = document.getElementById("lk"); if (!lk) return;
   const w = lk.querySelector(".lk-word").getBoundingClientRect().width, gap = parseFloat(getComputedStyle(lk).columnGap) || 0;

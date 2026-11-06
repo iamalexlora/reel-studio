@@ -1571,21 +1571,27 @@ function placeGlider(box, animate) {
   if (!animate || !from || (from.x === to.x && from.y === to.y && from.w === to.w) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   // La cápsula se convierte en una lupa de vidrio más grande que la barra, viaja y vuelve a su tamaño.
   const dist = Math.hypot(to.x - from.x, to.y - from.y);
-  const dur = Math.min(640, 420 + dist * 0.45);
-  const grow = box.classList.contains("glide-cards") ? 1.05 : Math.min(1.24, 1.12 + dist / 2400);
-  const at = (x, y, w, h, sx, sy) => ({ transform: `translate(${x}px, ${y}px) scale(${sx}, ${sy})`, width: w + "px", height: h + "px" });
-  const mw = (from.w + to.w) / 2 * 1.06;
+  const cardsBox = box.classList.contains("glide-cards");
+  const dur = Math.min(620, 360 + dist * 0.4);
+  const grow = cardsBox ? 1.04 : Math.min(1.2, 1.1 + dist / 3000);
   if (g._anim) g._anim.cancel();
+  if (g._bulge) g._bulge.cancel();
   clearTimeout(g._lensT);
-  // el vidrio aparece y desaparece con suavidad (transición CSS), no de golpe
   requestAnimationFrame(() => g.classList.add("lens"));
-  g._lensT = setTimeout(() => g.classList.remove("lens"), dur * 0.6);
+  g._lensT = setTimeout(() => g.classList.remove("lens"), dur * 0.7);
+  // un solo movimiento continuo (con un leve rebote al llegar) …
   const a = g._anim = g.animate([
-    { ...at(from.x, from.y, from.w, from.h, 1, 1), easing: "cubic-bezier(.3,0,.3,1)" },
-    { ...at(from.x + (to.x - from.x) * 0.08, from.y, from.w, from.h, 1.05, grow), offset: 0.22, easing: "cubic-bezier(.4,0,.2,1)" },
-    { ...at((from.x + to.x) / 2 + ((from.w + to.w) / 2 - mw) / 2, (from.y + to.y) / 2, mw, Math.max(from.h, to.h), 1.07, grow), offset: 0.55, easing: "cubic-bezier(.2,.6,.2,1)" },
-    at(to.x, to.y, to.w, to.h, 1, 1),
-  ], { duration: dur });
+    { transform: `translate(${from.x}px, ${from.y}px)`, width: from.w + "px", height: from.h + "px" },
+    { transform: `translate(${to.x}px, ${to.y}px)`, width: to.w + "px", height: to.h + "px" },
+  ], { duration: dur, easing: "cubic-bezier(.32, 1.18, .42, 1)" });
+  // … y, sumado encima, el vidrio se infla suave en el camino y vuelve a su tamaño
+  try {
+    g._bulge = g.animate([
+      { transform: "scale(1, 1)" },
+      { transform: `scale(${1 + (grow - 1) * 0.6}, ${grow})`, offset: 0.45 },
+      { transform: "scale(1, 1)" },
+    ], { duration: dur, easing: "ease-in-out", composite: "add" });
+  } catch (_) { /* navegadores sin «composite»: solo el desplazamiento */ }
   // efecto lupa: las opciones por donde pasa se agrandan
   const btns = Array.from(box.querySelectorAll(":scope > button")), cards = box.classList.contains("glide-cards");
   const bRect = box.getBoundingClientRect();

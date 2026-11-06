@@ -566,3 +566,12 @@ body.resizing iframe { pointer-events: none; }
 .btn.magic.big { font-size: 16px; padding: 13px 26px; border-radius: 999px; }
 .btn.magic:disabled { opacity: .45; filter: grayscale(.4); }
 @media (max-width: 1280px) { .steps { grid-template-columns: 1fr; } }
+
+/* ---------- el centro se adapta cuando se agrandan los paneles ---------- */
+.stage, .viewer, .timeline, .toolbar { min-width: 0; }
+.viewer, .timeline { overflow: hidden; }
+.screen-wrap { min-width: 0; width: 100%; }
+.tl-bar { min-width: 0; overflow: hidden; }
+.tl-bar .btn { flex: none; }
+.tl-hint { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-scroll { min-width: 0; }

@@ -2040,17 +2040,15 @@ window.__t0 = performance.now();
 (function startSplash() {
   const sp = document.getElementById("splash"); if (!sp) return;
   let started = false;
-  const go = (snd) => {
-    if (started) return; started = true;
-    window.__t0 = performance.now(); sp.classList.add("go");
-    if (snd) { snd.currentTime = 0; snd.play().catch(() => {}); }
-  };
+  const start = () => { if (started) return; started = true; window.__t0 = performance.now(); sp.classList.add("go"); };
   try {
     const snd = new Audio("/static/inicio.m4a"); snd.preload = "auto"; snd.volume = 0.5;
-    snd.addEventListener("canplaythrough", () => go(snd), { once: true });
+    // la animación arranca cuando el sonido YA está sonando (+ el retraso de los parlantes), así van juntos
+    snd.addEventListener("playing", () => setTimeout(start, 90), { once: true });
+    snd.addEventListener("canplaythrough", () => snd.play().catch(start), { once: true });
     snd.load();
-    setTimeout(() => go(null), 800);
-  } catch (_) { go(null); }
+    setTimeout(start, 1200);
+  } catch (_) { start(); }
 })();
 (function centerLogo() { // el logo empieza solo en el centro y luego se corre para que salga el nombre
   const lk = document.getElementById("lk"); if (!lk) return;

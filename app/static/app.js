@@ -205,7 +205,11 @@ $("#projList").addEventListener("click", async (e) => {
   const p = S.projects.find((x) => x.id === d.dataset.del);
   if (!confirm(`¿Borrar «${p ? p.name : ""}» con sus videos y exportaciones? No se puede deshacer.`)) return;
   await api("DELETE", "/api/projects/" + d.dataset.del);
-  if (S.P && S.P.id === d.dataset.del) { S.P = null; location.hash = ""; render(); }
+  if (S.P && S.P.id === d.dataset.del) {
+    stop(); S.useRender = false; S.previewReady = null; $("#renderBadge").hidden = true; clearScreen();
+    for (const id in animFrames) { animFrames[id].remove(); delete animFrames[id]; }
+    S.P = null; S.plan = null; S.history = []; history.replaceState(null, "", location.pathname); render();
+  }
   loadProjects();
 });
 $("#brandList").addEventListener("click", async (e) => {

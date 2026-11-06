@@ -612,3 +612,8 @@ body.resizing iframe { pointer-events: none; }
 .inspector .panels { flex: 1; min-height: 0; }
 .insp-foot { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 14px 14px; border-top: 1px solid var(--line); }
 .insp-foot .btn { justify-content: center; padding: 11px 12px; font-size: 14px; }
+
+/* sin proyecto o en el inicio guiado: nada del video anterior queda detrás */
+.viewer.empty .screen { display: none; }
+.dropzone { background: var(--bg); }
+.dropzone::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--glass-strong); pointer-events: none; z-index: -1; }

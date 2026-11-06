@@ -24,7 +24,7 @@ $pydir = Split-Path $pyexe -Parent
 Copy-Item -Recurse $pydir "$rs\runtime\python"
 $py = "$rs\runtime\python\python.exe"
 & $py -m pip install --upgrade --no-warn-script-location -q pip
-& $py -m pip install --no-warn-script-location -q faster-whisper pillow numpy huggingface_hub
+& $py -m pip install --no-warn-script-location -q faster-whisper pillow numpy huggingface_hub yt-dlp
 if ($LASTEXITCODE -ne 0) { throw "pip falló" }
 Remove-Item -Recurse -Force "$rs\runtime\python\Lib\test", "$rs\runtime\python\Lib\site-packages\pip\_vendor\rich\__pycache__" -ErrorAction SilentlyContinue
 

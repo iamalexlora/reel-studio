@@ -10,6 +10,18 @@
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"></div>
+<div id="splash" aria-hidden="true">
+  <svg viewBox="196 280 600 490" class="splash-logo">
+    <defs><linearGradient id="spen" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3E6CF0"/><stop offset="1" stop-color="#2B5BD7"/></linearGradient></defs>
+    <rect class="sb s1" x="236" y="300" width="214" height="76" rx="38" fill="#FFE14D"/>
+    <rect class="sb s2" x="478" y="300" width="310" height="76" rx="38" fill="currentColor"/>
+    <rect class="sb s3" x="236" y="474" width="420" height="76" rx="38" fill="currentColor" fill-opacity=".28"/>
+    <path class="spen" d="M196 532 L 724 488" stroke="url(#spen)" stroke-width="54" stroke-linecap="round" fill="none"/>
+    <rect class="sb s4" x="236" y="648" width="330" height="76" rx="38" fill="currentColor"/>
+    <path class="splay" d="M640 628 L 640 744 Q 640 760 654 752 L 752 698 Q 766 686 752 674 L 654 620 Q 640 612 640 628 Z" fill="currentColor"/>
+  </svg>
+  <div class="splash-name">Reel Studio</div>
+</div>
 <div id="app">
 
   <!-- barra lateral -->
@@ -37,6 +49,7 @@
     <div class="dur" id="durLabel"></div>
     <div class="savestate" id="saveState" aria-live="polite"></div>
     <button class="btn ghost" id="undoBtn" title="Deshacer (⌘Z)" disabled>Deshacer</button>
+    <button class="btn magic" id="makeBtn" disabled title="Un solo paso: limpia, arma, da color, pone subtítulos, música y animaciones">✦ Hacer mi video</button>
     <button class="btn" id="assembleBtn" disabled title="Ordena los clips: voz como principal, el resto como apoyo o montaje">Armar video</button>
     <button class="btn" id="previewBtn" disabled title="Renderiza una versión rápida con color, transiciones y música exactos">Vista previa final</button>
     <button class="btn primary" id="exportBtn" disabled>Exportar</button>
@@ -51,7 +64,9 @@
           <video id="vB" playsinline preload="auto"></video>
           <video id="vBr" playsinline preload="auto" muted></video>
           <img id="cardImg" alt="">
+          <div id="fadeLayer"></div>
           <img id="logoImg" alt="">
+          <div id="animLayer"></div>
           <div class="cap" id="cap"></div>
           <div class="screen-badge" id="renderBadge" hidden>Vista previa final</div>
         </div>
@@ -59,7 +74,8 @@
           <div class="dz-in">
             <h1 id="dzTitle">Crea tu primer proyecto</h1>
             <p id="dzText">Arrastra aquí tus videos (tomas hablando, de dron o de cámara). Se procesan en tu computadora; nada se sube a internet.</p>
-            <label class="btn primary big"><input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>Elegir videos</label>
+            <div class="dz-btns"><label class="btn primary big"><input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>Elegir videos</label>
+            <button class="btn big" type="button" data-link="clip">Pegar un enlace</button></div>
           </div>
         </div>
       </div>
@@ -77,11 +93,14 @@
       <div class="tl-bar">
         <label class="btn small"><input type="file" id="addClips" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>+ Videos</label>
         <label class="btn small"><input type="file" id="addMusic" accept="audio/*,.mp3,.wav,.m4a,.aac" hidden>+ Música</label>
+        <button class="btn small" type="button" data-link="clip">+ Enlace</button>
+        <button class="btn small" type="button" id="addAnimBtn">+ Animación</button>
         <span class="tl-hint" id="tlHint">Arrastra los clips para cambiar el orden. Clic en ◆ para cambiar la transición.</span>
       </div>
       <div class="tl-scroll" id="tlScroll">
         <div class="tl-canvas" id="tlCanvas">
           <div class="tl-ruler" id="tlRuler"></div>
+          <div class="lane anim" id="laneAnim" data-label="Animación"></div>
           <div class="lane" id="laneBroll" data-label="Apoyo"></div>
           <div class="lane main" id="laneMain" data-label="Principal"></div>
           <div class="lane music" id="laneMusic" data-label="Música"></div>
@@ -96,6 +115,7 @@
     <div class="tabs" role="tablist" id="tabs">
       <button role="tab" data-tab="t-texto" class="on">Texto</button>
       <button role="tab" data-tab="t-clip">Clips</button>
+      <button role="tab" data-tab="t-anim">Animación</button>
       <button role="tab" data-tab="t-color">Color</button>
       <button role="tab" data-tab="t-audio">Audio</button>
       <button role="tab" data-tab="t-estilo">Estilo</button>
@@ -108,6 +128,7 @@
     <div class="panels">
       <div class="panel" id="t-texto"></div>
       <div class="panel" id="t-clip" hidden></div>
+      <div class="panel" id="t-anim" hidden></div>
       <div class="panel" id="t-color" hidden></div>
       <div class="panel" id="t-audio" hidden></div>
       <div class="panel" id="t-estilo" hidden></div>
@@ -166,6 +187,43 @@
     <div class="dlg-actions">
       <button class="btn ghost" value="cancel">Cancelar</button>
       <button class="btn primary" value="ok">Crear</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="makeDlg" class="glass-dlg">
+  <form method="dialog" class="dlg">
+    <h2>Hacer mi video</h2>
+    <p class="fine">Limpio silencios y muletillas, ordeno las tomas, igualo el color y pongo subtítulos y animaciones. En unos minutos tienes la vista previa y solo corriges lo que no te guste.</p>
+    <div class="field"><label>Estilo</label>
+      <div class="vibes" id="mVibe">
+        <button type="button" data-v="dinamico"><b>Dinámico</b><span>Cortes rápidos, zoom, color vivo, subtítulos grandes</span></button>
+        <button type="button" data-v="elegante"><b>Elegante</b><span>Disolvencias, look de cine, subtítulos limpios</span></button>
+        <button type="button" data-v="natural"><b>Natural</b><span>Cortes simples, color real, sin exagerar</span></button>
+      </div></div>
+    <div class="field"><label>Formato</label><div class="seg" id="mFmt"></div></div>
+    <div class="field"><label for="mTitle">Título al inicio</label><input id="mTitle" class="textin" placeholder="Opcional: si lo dejas vacío uso tus primeras palabras" maxlength="60"></div>
+    <div class="field"><label for="mCta">Llamada al final</label><input id="mCta" class="textin" value="Sígueme para más" maxlength="40"></div>
+    <div class="row-f"><label for="mClean">Quitar silencios, muletillas y tomas repetidas</label><input type="checkbox" class="switch" id="mClean" checked></div>
+    <div class="row-f"><label for="mSubs">Subtítulos animados</label><input type="checkbox" class="switch" id="mSubs" checked></div>
+    <div class="row-f"><label for="mAnims">Animaciones (título, frases clave, llamada)</label><input type="checkbox" class="switch" id="mAnims" checked></div>
+    <div class="dlg-actions">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn primary" type="button" id="mGo">✦ Hacer mi video</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="linkDlg" class="glass-dlg">
+  <form method="dialog" class="dlg small">
+    <h2>Pegar un enlace</h2>
+    <p class="fine">Instagram, TikTok, YouTube, Vimeo, Drive público… Lo bajo y lo agrego al proyecto. Usa videos tuyos o como referencia de estilo.</p>
+    <input id="linkUrl" class="textin" autocomplete="off" placeholder="https://…">
+    <div class="field"><label>Agregarlo como</label>
+      <div class="seg" id="linkAs"><button type="button" data-v="clip" class="on">Clip</button><button type="button" data-v="referencia">Referencia</button><button type="button" data-v="musica">Música</button></div></div>
+    <div class="dlg-actions">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn primary" type="button" id="linkGo">Agregar</button>
     </div>
   </form>
 </dialog>

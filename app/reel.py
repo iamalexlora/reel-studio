@@ -298,7 +298,7 @@ def main():
                 print(f"  {int(f * 100)}% {msg}", flush=True)
         r = E.render(p, opts, prog)
         E.update(pid, lambda x: E.add_log(x, "claude", f"Exporté {r['file']} · {r['size_px']} · {r['fps']} fps · {r['codec']}"))
-        print("Listo:", E.project_dir(pid) / "exports" / r["file"])
+        print("Listo:", E.find_export(E.load(pid), r["file"]))
         return
 
     msg = []

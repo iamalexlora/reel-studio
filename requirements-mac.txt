@@ -1,2 +1,3 @@
 mlx-whisper
 pillow
+yt-dlp

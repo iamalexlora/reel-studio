@@ -74,7 +74,7 @@ paso "Motor de transcripción"
 if [ "$ARCH" = "arm64" ]; then
   "$DEST/.venv/bin/pip" install -q --upgrade -r "$DEST/requirements-mac.txt"
 else
-  "$DEST/.venv/bin/pip" install -q --upgrade faster-whisper pillow
+  "$DEST/.venv/bin/pip" install -q --upgrade faster-whisper pillow yt-dlp
 fi
 echo "ok"
 

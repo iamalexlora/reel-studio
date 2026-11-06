@@ -279,6 +279,7 @@ def migrate(p: dict) -> dict:
     p.setdefault("broll", [])
     p.setdefault("requests", [])
     p.setdefault("reference", None)
+    p.setdefault("anims", [])
     p.setdefault("words", [])
     p.setdefault("log", [])
     p.setdefault("style", default_style())
@@ -360,13 +361,41 @@ def slug(text: str) -> str:
     return t[:30] or "video"
 
 
+def exports_root() -> Path:
+    """Carpeta donde salen los videos: ~/Movies/Reel Studio (Películas en la Mac) o ~/Videos/Reel Studio en Windows."""
+    if os.environ.get("REEL_EXPORTS"):
+        return Path(os.environ["REEL_EXPORTS"])
+    if os.environ.get("REEL_HOME"):
+        return HOME / "exportados"
+    return Path.home() / ("Videos" if IS_WIN else "Movies") / "Reel Studio"
+
+
+def export_dirs(p: dict) -> list[Path]:
+    """[carpeta actual del proyecto, carpetas anteriores…]. La primera es donde se guardan las exportaciones nuevas."""
+    safe = re.sub(r'[\\/:*?"<>|]+', " ", p.get("name") or "Proyecto").strip(" .") or "Proyecto"
+    out = [exports_root() / safe[:80]]
+    for f in p.get("exportFolders", []):
+        if Path(f) not in out:
+            out.append(Path(f))
+    out.append(project_dir(p["id"]) / "exports")
+    return out
+
+
+def find_export(p: dict, name: str) -> Path | None:
+    for d in export_dirs(p):
+        f = d / Path(name).name
+        if f.is_file():
+            return f
+    return None
+
+
 def create_project(name: str) -> dict:
     pid = f"{slug(name)}-{uuid.uuid4().hex[:6]}"
     d = project_dir(pid)
     for sub in ("clips", "exports", "work", "media"):
         (d / sub).mkdir(parents=True, exist_ok=True)
     p = {"id": pid, "name": name, "created": time.time(), "updated": time.time(), "rev": 0,
-         "clips": [], "timeline": [], "broll": [], "words": [], "requests": [], "reference": None,
+         "clips": [], "timeline": [], "broll": [], "words": [], "requests": [], "reference": None, "anims": [],
          "settings": json.loads(json.dumps(DEFAULT_SETTINGS)), "style": default_style(), "log": []}
     _write(p)
     return p
@@ -1580,7 +1609,8 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     codec = "h264" if preview else opts.get("codec", "h264")
     used = [clip_by_id(p, it["clip"]) for it in p["timeline"]] + [clip_by_id(p, b["clip"]) for b in p["broll"]]
     used = [c for c in used if c]
-    hdr = bool(used) and all(c.get("hdr") for c in used) and not grading_active(p) and not preview
+    anim_list = [a for a in (p.get("anims") or []) if a.get("on", True) and str(a.get("text", "")).strip()]
+    hdr = bool(used) and all(c.get("hdr") for c in used) and not grading_active(p) and not preview and not anim_list
     trc = next(((c.get("color") or {}).get("transfer") for c in used if c.get("hdr")), "arib-std-b67")
     ctx = {"fps": fps, "geo": geo, "hdr": hdr, "draft": preview}
 
@@ -1595,8 +1625,14 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     (d / "media").mkdir(exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     tag = {"vertical": "9x16", "horizontal": "16x9", "4:5": "4x5", "5:4": "5x4", "cuadrado": "1x1"}.get(fmt, fmt)
-    exp = d / "exports"
-    exp.mkdir(exist_ok=True)
+    exp = export_dirs(p)[0]
+    exp.mkdir(parents=True, exist_ok=True)
+    if not preview and str(exp) not in p.get("exportFolders", []):
+        def _remember(q, folder=str(exp)):
+            q.setdefault("exportFolders", [])
+            if folder not in q["exportFolders"]:
+                q["exportFolders"].append(folder)
+        update(p["id"], _remember)
     if preview:
         out_file = d / "media" / "preview.mp4"
     else:
@@ -1650,6 +1686,27 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
             render_piece(p, segs, c, ctx, f, with_audio=False)
         used_keys.add(f.name)
         broll_files.append((f, at, sum(y - x for x, y in segs)))
+
+    # 1b. Animaciones (HyperFrames): se graban con fondo transparente y se guardan en caché
+    anim_files = []
+    if anim_list:
+        import anims as A
+        if not A.status()["ready"]:
+            A.install(lambda f, m="": progress(0.5, "Preparando animaciones (solo la primera vez)… " + m))
+        for i, a in enumerate(anim_list):
+            at = max(0.0, min(float(a.get("start", 0)), total - 0.5))
+            ad = min(float(a.get("dur", 3)), total - at)
+            if ad < 0.5:
+                continue
+            a2 = dict(a, dur=round(ad, 3))
+            key = "anim-" + A.anim_key(p, a2, geo, fps, kit)
+            f = pieces_dir / f"{key}.mov"
+            progress(0.52, f"Dibujando animación {i + 1} de {len(anim_list)}…")
+            if not f.exists():
+                A.render_anim(p, a2, geo, fps, kit, f)
+            used_keys.add(f.name)
+            anim_files.append((f, at, ad))
+
     for old in pieces_dir.glob("*.mov"):
         if old.name not in used_keys and time.time() - old.stat().st_mtime > 6 * 3600:
             old.unlink()
@@ -1754,6 +1811,12 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
         g.append(f"[{nxt}:v]scale={lw}:-2,format=rgba,colorchannelmixer=aa={float(lg.get('opacity', 0.9)):.2f}[lg]")
         g.append(f"{cur}[lg]overlay={x}:{y}:format={ofmt}:eof_action=pass[olg]")
         cur = "[olg]"
+        nxt += 1
+    for k_, (f, at, ad) in enumerate(anim_files):
+        cmd += ["-i", str(f)]
+        g.append(f"[{nxt}:v]fps={fps},format={afmt},setpts=PTS-STARTPTS+{at:.4f}/TB[an{k_}]")
+        g.append(f"{cur}[an{k_}]overlay=0:0:eof_action=pass:format={ofmt}:enable='between(t,{at:.4f},{at + ad - 0.001:.4f})'[oan{k_}]")
+        cur = f"[oan{k_}]"
         nxt += 1
     if cap_track is not None:
         cmd += ["-f", "concat", "-safe", "0", "-i", str(cap_track)]

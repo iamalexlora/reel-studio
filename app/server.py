@@ -121,6 +121,194 @@ def process_clip(pid: str, cid: str):
     return run_job(j, safe)
 
 
+def start_music(pid: str, dest: Path, name: str) -> dict:
+    d = E.project_dir(pid)
+    j = new_job("music", pid, "música")
+
+    def work(prog):
+        with HEAVY:
+            prog(0.2, "Escuchando el ritmo…")
+            a = E.analyze_audio_beats(dest)
+            subprocess.run([E.FFMPEG, "-v", "error", "-y", "-i", str(dest), "-filter_complex",
+                            "aformat=channel_layouts=mono,showwavespic=s=2400x90:colors=#0A84FF|#0A84FF:scale=sqrt",
+                            "-frames:v", "1", str(d / "media" / "music_wave.png")], capture_output=True)
+
+            def ap(p):
+                m = p["settings"]["music"]
+                m.update(file=dest.name, name=name, tempo=a["tempo"], beats=a["beats"], duration=a["duration"])
+                E.add_log(p, "auto", f"Música «{m['name']}»: {a['tempo']:.0f} BPM.")
+            E.update(pid, ap)
+            return a
+    return run_job(j, work)
+
+
+def start_reference(pid: str, dest: Path, name: str) -> dict:
+    E.update(pid, lambda p: p.update(reference={"file": dest.name, "name": name, "analysis": None,
+                                                "prompt": (p.get("reference") or {}).get("prompt", "")}))
+    j = new_job("reference", pid, "referencia")
+
+    def work(prog):
+        with HEAVY:
+            a = E.analyze_reference(E.load(pid), prog)
+
+            def ap(p):
+                p["reference"]["analysis"] = a
+                E.add_log(p, "auto", f"Referencia analizada: {a['shots']} tomas de {a['avgShot']:.1f} s, "
+                                     f"look {E.LOOKS[a['look']]['label'].lower()}.")
+            E.update(pid, ap)
+            return a
+    return run_job(j, work)
+
+
+# ---------------------------------------------------------------- enlaces (yt-dlp)
+def import_link(pid: str, url: str, as_: str) -> dict:
+    """Baja un video o audio desde un enlace (Instagram, TikTok, YouTube…) y lo trata como si lo hubieras arrastrado."""
+    j = new_job("link", pid, "enlace")
+
+    def work(prog):
+        try:
+            import yt_dlp
+        except ImportError:
+            raise RuntimeError("Falta el componente para bajar enlaces. Actualiza Reel Studio y vuelve a intentar.")
+        d = E.project_dir(pid)
+        tmp = d / "work" / "descargas" / uuid.uuid4().hex[:8]
+        tmp.mkdir(parents=True, exist_ok=True)
+        info_box = {}
+
+        def hook(h):
+            if h.get("status") == "downloading":
+                tot = h.get("total_bytes") or h.get("total_bytes_estimate") or 0
+                if tot:
+                    prog(0.05 + 0.85 * h.get("downloaded_bytes", 0) / tot,
+                         f"Bajando… {h.get('downloaded_bytes', 0) // (1 << 20)} de {tot // (1 << 20)} MB")
+        audio = as_ == "musica"
+        opts = {"outtmpl": str(tmp / "%(title).80B.%(ext)s"), "noplaylist": True, "quiet": True, "no_warnings": True,
+                "progress_hooks": [hook], "ffmpeg_location": str(Path(E.FFMPEG).parent) if os.sep in E.FFMPEG else None,
+                "format": ("bestaudio/best" if audio else
+                           "bv*[ext=mp4][vcodec^=avc1]+ba[ext=m4a]/bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b"),
+                "merge_output_format": None if audio else "mp4"}
+        opts = {k: v for k, v in opts.items() if v is not None}
+        prog(0.02, "Leyendo el enlace…")
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            info_box["title"] = info.get("title") or "video"
+        files = sorted([f for f in tmp.iterdir() if f.is_file() and not f.name.endswith((".part", ".ytdl"))],
+                       key=lambda f: f.stat().st_size, reverse=True)
+        if not files:
+            raise RuntimeError("No pude bajar nada de ese enlace.")
+        f = files[0]
+        title = info_box["title"][:60]
+        prog(0.95, "Agregando al proyecto…")
+        if as_ == "musica":
+            for old in d.glob("musica.*"):
+                old.unlink()
+            dest = d / f"musica{f.suffix.lower()}"
+            shutil.move(str(f), dest)
+            sub = start_music(pid, dest, title)
+        elif as_ == "referencia":
+            for old in d.glob("referencia.*"):
+                old.unlink()
+            dest = d / f"referencia{f.suffix.lower()}"
+            shutil.move(str(f), dest)
+            sub = start_reference(pid, dest, title)
+        else:
+            c, dest = E.new_clip(pid, E.slug(title)[:40] + f.suffix.lower())
+            shutil.move(str(f), dest)
+            sub = process_clip(pid, c["id"])
+        shutil.rmtree(tmp, ignore_errors=True)
+        return {"title": title, "as": as_, "job": sub["id"]}
+    return run_job(j, work)
+
+
+# ---------------------------------------------------------------- animaciones
+def install_anims() -> dict:
+    import anims as A
+    for j0 in JOBS.values():
+        if j0["kind"] == "anim-install" and j0["status"] == "running":
+            return j0
+    j = new_job("anim-install", "", "animaciones")
+    return run_job(j, lambda prog: A.install(prog))
+
+
+# ---------------------------------------------------------------- «Hacer mi video»
+VIBES = {
+    "dinamico": {"label": "Dinámico", "preset": "impacto", "look": "vivo", "trans": "zoom", "tdur": 0.3, "pace": 1.8},
+    "elegante": {"label": "Elegante", "preset": "limpio", "look": "cine", "trans": "disolver", "tdur": 0.5, "pace": 2.8},
+    "natural":  {"label": "Natural", "preset": "limpio", "look": "natural", "trans": "corte", "tdur": 0.3, "pace": 2.5},
+}
+
+
+def make_video(pid: str, o: dict) -> dict:
+    """Un solo botón: limpia, arma, iguala color, pone estilo, subtítulos, animaciones y deja la vista previa."""
+    import anims as A
+    j = new_job("make", pid, "Hacer mi video")
+
+    def work(prog):
+        prog(0.02, "Esperando que terminen de procesarse tus clips…")
+        for _ in range(1800):
+            p = E.load(pid)
+            busy = [c for c in p["clips"] if c.get("status") not in ("listo", "sin voz")]
+            if not busy:
+                break
+            prog(0.02, f"Procesando clips ({len(p['clips']) - len(busy)} de {len(p['clips'])} listos)…")
+            time.sleep(1)
+        p = E.load(pid)
+        if not p["clips"]:
+            raise RuntimeError("Primero agrega tus videos.")
+        vibe = VIBES.get(o.get("style"), VIBES["dinamico"])
+
+        def setup(q):
+            st = q["settings"]
+            if o.get("format") in E.FORMATS:
+                st["format"] = o["format"]
+            st["pace"] = vibe["pace"]
+            st["subtitles"] = bool(o.get("subtitles", True))
+            st["removeSilences"] = bool(o.get("clean", True))
+            st["transition"] = {"type": vibe["trans"], "dur": vibe["tdur"]}
+            st["grade"]["look"] = vibe["look"]
+            if o.get("brand") is not None:
+                st["brand"] = o.get("brand") or ""
+            keep = {k: q["style"].get(k) for k in ("font",) if (E.load_brand(st.get("brand", "")) or {}).get("fontFile")}
+            q["style"] = E.default_style(vibe["preset"])
+            q["style"].update({k: v for k, v in keep.items() if v})
+            if o.get("clean", True):
+                E.autoclean(q)
+            msg = E.auto_assemble(q)
+            for itm in q["timeline"][1:]:
+                itm.pop("trans", None)
+            E.add_log(q, "auto", f"Hacer mi video ({vibe['label']}): {msg}")
+        prog(0.08, "Limpiando y armando…")
+        E.update(pid, setup)
+        if len([c for c in p["clips"] if c.get("hasVideo", True)]) > 1:
+            prog(0.12, "Igualando el color entre clips…")
+            with HEAVY:
+                q = E.load(pid)
+                n = E.match_clips_color(q, lambda f, m="": prog(0.12 + 0.08 * f, "Igualando el color…"))
+                stats = {c["id"]: (c.get("stats"), c.get("adjust")) for c in q["clips"]}
+
+                def ap(q2):
+                    for c in q2["clips"]:
+                        if c["id"] in stats:
+                            c["stats"], c["adjust"] = stats[c["id"]][0], stats[c["id"]][1] or {}
+                E.update(pid, ap)
+        if o.get("anims", True):
+            prog(0.22, "Proponiendo animaciones…")
+
+            def an(q):
+                pl = E.plan(q)
+                q["anims"] = A.auto_anims(q, pl, title=(o.get("title") or "").strip(),
+                                          cta=(o.get("cta") or "").strip(), highlight=bool(o.get("highlight", True)))
+            E.update(pid, an)
+            if not A.status()["ready"]:
+                A.install(lambda f, m="": prog(0.25 + 0.25 * f, "Activando animaciones (solo la primera vez)… " + m))
+        else:
+            E.update(pid, lambda q: q.update(anims=[]))
+        prog(0.5, "Haciendo la vista previa…")
+        r = E.render(E.load(pid), {"preview": True}, lambda f, m="": prog(0.5 + 0.5 * f, m))
+        return {"preview": r, "style": vibe["label"]}
+    return run_job(j, work)
+
+
 def receive(handler, dest: Path):
     n = int(handler.headers.get("Content-Length") or 0)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -224,6 +412,11 @@ class H(BaseHTTPRequestHandler):
                 return self.send_file(E.brand_dir(parts[1]) / Path(parts[2]).name)
             if parts[0] == "media" and len(parts) >= 3:
                 return self.media(parts, q)
+            if parts[:2] == ["api", "anims"]:
+                import anims as A
+                return self.send_json({**A.status(), "kinds": A.KINDS, "vibes": {k: v["label"] for k, v in VIBES.items()}})
+            if parts[0] == "anim" and len(parts) == 4:
+                return self.anim_page(parts[1], parts[2], parts[3], q)
             if parts[:2] == ["api", "update"]:
                 now = time.time()
                 if now - _UPD["t"] > 50 or "force" in q:
@@ -235,7 +428,8 @@ class H(BaseHTTPRequestHandler):
                 looks = {k: {"label": v["label"], "css": v["css"]} for k, v in E.LOOKS.items()}
                 return self.send_json({"presets": E.PRESETS, "fonts": E.FONTS, "defaults": E.DEFAULT_SETTINGS,
                                        "formats": E.FORMATS, "looks": looks, "transitions": list(E.TRANSITIONS),
-                                       "fontEm": E.FONT_EM, "home": str(E.HOME), "engine": engine_name()})
+                                       "fontEm": E.FONT_EM, "home": str(E.HOME), "engine": engine_name(),
+                                       "exportsRoot": str(E.exports_root())})
             if parts[:2] == ["api", "brands"]:
                 return self.send_json(E.list_brands())
             if parts[:2] == ["api", "projects"] and len(parts) == 2:
@@ -259,6 +453,18 @@ class H(BaseHTTPRequestHandler):
         except Exception as ex:
             traceback.print_exc()
             self.send_json({"error": str(ex)}, 500)
+
+    def anim_page(self, pid, aid, name, q):
+        import anims as A
+        folder = E.project_dir(pid) / "work" / "anim-preview" / Path(aid).name
+        if name == "index.html":
+            p = E.load(pid)
+            a = next((x for x in (p.get("anims") or []) if x.get("id") == aid), None)
+            if not a:
+                return self.send_json({"error": "no existe"}, 404)
+            kit = E.load_brand(p["settings"].get("brand", "")) or {}
+            A.write_page(p, a, E.geometry(p["settings"].get("format", "vertical"), 1080), kit, folder)
+        return self.send_file(folder / Path(name).name)
 
     def media(self, parts, q):
         pid = parts[1]
@@ -288,7 +494,8 @@ class H(BaseHTTPRequestHandler):
             return self.send_file(out)
         if kind == "export" and len(parts) == 4:
             name = Path(parts[3]).name
-            return self.send_file(d / "exports" / name, download_name=name if "dl" in q else None)
+            f = E.find_export(E.load(pid), name) or (d / "exports" / Path(name).name)
+            return self.send_file(f, download_name=Path(name).name if "dl" in q else None)
         return self.send_json({"error": "no existe"}, 404)
 
     # ------------------------------------------------------------ POST
@@ -299,6 +506,8 @@ class H(BaseHTTPRequestHandler):
                 self.send_json({"ok": True})
                 threading.Timer(0.2, lambda: os._exit(0)).start()
                 return
+            if parts == ["api", "anims", "install"]:
+                return self.send_json(install_anims())
             if parts == ["api", "update"]:
                 if any(j["status"] == "running" and j["kind"] in ("export", "preview") for j in JOBS.values()):
                     return self.send_json({"error": "Espera a que termine la exportación."}, 409)
@@ -386,24 +595,7 @@ class H(BaseHTTPRequestHandler):
                 old.unlink()
             dest = d / f"musica{ext}"
             receive(self, dest)
-            j = new_job("music", pid, "música")
-
-            def work(prog):
-                with HEAVY:
-                    prog(0.2, "Escuchando el ritmo…")
-                    a = E.analyze_audio_beats(dest)
-                    subprocess.run([E.FFMPEG, "-v", "error", "-y", "-i", str(dest), "-filter_complex",
-                                    "aformat=channel_layouts=mono,showwavespic=s=2400x90:colors=#0A84FF|#0A84FF:scale=sqrt",
-                                    "-frames:v", "1", str(d / "media" / "music_wave.png")], capture_output=True)
-
-                    def ap(p):
-                        m = p["settings"]["music"]
-                        m.update(file=dest.name, name=Path(fn).stem, tempo=a["tempo"], beats=a["beats"],
-                                 duration=a["duration"])
-                        E.add_log(p, "auto", f"Música «{m['name']}»: {a['tempo']:.0f} BPM.")
-                    E.update(pid, ap)
-                    return a
-            return self.send_json(run_job(j, work))
+            return self.send_json(start_music(pid, dest, Path(fn).stem))
         if action == "reference":
             fn = (q.get("filename") or ["referencia.mp4"])[0]
             ext = Path(fn).suffix.lower()
@@ -414,20 +606,27 @@ class H(BaseHTTPRequestHandler):
                 old.unlink()
             dest = d / f"referencia{ext}"
             receive(self, dest)
-            E.update(pid, lambda p: p.update(reference={"file": dest.name, "name": Path(fn).stem, "analysis": None}))
-            j = new_job("reference", pid, "referencia")
+            return self.send_json(start_reference(pid, dest, Path(fn).stem))
+        if action == "link":
+            b = self.body_json()
+            url = (b.get("url") or "").strip()
+            if not re.match(r"^https?://", url):
+                return self.send_json({"error": "Pega un enlace que empiece con https://"}, 400)
+            return self.send_json(import_link(pid, url, b.get("as") or "clip"))
+        if action == "make":
+            for j0 in JOBS.values():
+                if j0["project"] == pid and j0["kind"] == "make" and j0["status"] == "running":
+                    return self.send_json(j0)
+            return self.send_json(make_video(pid, self.body_json()))
+        if action == "anims" and rest == ["auto"]:
+            import anims as A
+            b = self.body_json()
 
-            def work(prog):
-                with HEAVY:
-                    a = E.analyze_reference(E.load(pid), prog)
-
-                    def ap(p):
-                        p["reference"]["analysis"] = a
-                        E.add_log(p, "auto", f"Referencia analizada: {a['shots']} tomas de {a['avgShot']:.1f} s, "
-                                             f"look {E.LOOKS[a['look']]['label'].lower()}.")
-                    E.update(pid, ap)
-                    return a
-            return self.send_json(run_job(j, work))
+            def fn(p):
+                p["anims"] = A.auto_anims(p, E.plan(p), title=b.get("title", ""), cta=b.get("cta", ""),
+                                          highlight=b.get("highlight", True))
+                E.add_log(p, "auto", f"Propuse {len(p['anims'])} animaciones.")
+            return self.send_json(E.update(pid, fn))
         if action == "apply-reference":
             def fn(p):
                 done = E.apply_reference(p)
@@ -494,7 +693,7 @@ class H(BaseHTTPRequestHandler):
             return self.send_json(E.update(pid, fn))
         if action == "reveal":
             name = Path(self.body_json().get("file", "")).name
-            path = E.project_dir(pid) / "exports" / name
+            path = E.find_export(E.load(pid), name) or (E.project_dir(pid) / "exports" / name)
             if sys.platform == "darwin" and path.exists():
                 subprocess.Popen(["open", "-R", str(path)])
             elif os.name == "nt" and path.exists():
@@ -510,7 +709,7 @@ class H(BaseHTTPRequestHandler):
                 body = self.body_json()
                 cur = E.load(parts[2])
                 base = int(body.get("rev", -1))
-                for k in ("words", "settings", "style", "name", "timeline", "broll", "requests", "reference"):
+                for k in ("words", "settings", "style", "name", "timeline", "broll", "requests", "reference", "anims"):
                     if k in body:
                         cur[k] = body[k]
                 if "clips" in body:   # solo campos editables de cada clip
@@ -560,12 +759,16 @@ class H(BaseHTTPRequestHandler):
 
 
 def list_exports(pid: str):
-    d = E.project_dir(pid) / "exports"
-    if not d.exists():
-        return []
-    files = sorted(d.iterdir(), key=lambda x: -x.stat().st_mtime)
-    return [{"name": f.name, "size": f.stat().st_size, "time": f.stat().st_mtime}
-            for f in files if f.is_file() and ".tmp" not in f.name]
+    files, seen = [], set()
+    for d in E.export_dirs(E.load(pid)):
+        if d.exists():
+            for f in d.iterdir():
+                if f.is_file() and ".tmp" not in f.name and f.name not in seen and not f.name.startswith("."):
+                    seen.add(f.name)
+                    files.append(f)
+    files.sort(key=lambda x: -x.stat().st_mtime)
+    return [{"name": f.name, "size": f.stat().st_size, "time": f.stat().st_mtime, "folder": str(f.parent)}
+            for f in files]
 
 
 def restart():

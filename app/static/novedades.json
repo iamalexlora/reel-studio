@@ -1,0 +1,12 @@
+[
+  {"v": "2.7", "date": "5 nov 2026", "title": "Más pulido y más rápido de usar",
+   "items": ["Nueva pantalla de proyectos y transiciones suaves entre pantallas.", "Animación de inicio y de cierre renovadas.", "La ventana luce más limpia, con el mismo vidrio de todo el programa.", "Mejoras de funcionamiento y estabilidad."]},
+  {"v": "2.6", "date": "5 nov 2026", "title": "Haz tu video en un paso",
+   "items": ["Botón «Hacer mi video»: eliges estilo y formato, y el video se arma solo.", "Animaciones de título, frases destacadas y llamadas a la acción.", "Agrega videos pegando un enlace.", "Las transiciones se ven mientras editas."]},
+  {"v": "2.5", "date": "5 nov 2026", "title": "Más fácil de editar",
+   "items": ["Paneles que puedes agrandar o achicar.", "Subtítulos que se activan o se ocultan con un toque.", "Exportaciones guardadas en Películas › Reel Studio.", "Correcciones menores."]},
+  {"v": "2.4", "date": "5 nov 2026", "title": "Actualizaciones automáticas",
+   "items": ["Reel Studio te avisa cuando hay una versión nueva y se actualiza con un toque.", "Botones con efecto de vidrio."]},
+  {"v": "2.0", "date": "4 nov 2026", "title": "Editor de varios videos",
+   "items": ["Une varios videos en uno, con color, transiciones y música.", "Línea gráfica de tu marca y video de referencia.", "Tema oscuro y claro."]}
+]

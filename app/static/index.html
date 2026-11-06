@@ -50,6 +50,7 @@
       </div>
       <button class="btn small update" id="updateBtn" hidden>Actualización disponible</button>
       <button class="btn small" id="checkUpdBtn">Buscar actualizaciones</button>
+      <button class="btn small ghost" id="newsBtn">Novedades</button>
     </div>
   </aside>
 
@@ -264,6 +265,14 @@
       <button class="btn ghost" value="cancel">Cancelar</button>
       <button class="btn primary" type="button" id="linkGo">Agregar</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="newsDlg" class="glass-dlg">
+  <form method="dialog" class="dlg">
+    <h2>Novedades</h2>
+    <div class="news" id="newsList"></div>
+    <div class="dlg-actions"><button class="btn primary" value="ok">Listo</button></div>
   </form>
 </dialog>
 

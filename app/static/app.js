@@ -1485,7 +1485,7 @@ async function checkUpdate() {
     const u = await api("GET", "/api/update");
     updInfo = u.available ? u : null;
     const b = $("#updateBtn"); b.hidden = !u.available;
-    if (u.available) b.title = u.message ? "Novedad: " + u.message : "";
+    if (u.available) b.title = "Hay mejoras y novedades";
     showUpdPill();
   } catch (_) {}
 }
@@ -1500,7 +1500,7 @@ function showUpdPill() {
     $("#updGo").addEventListener("click", runUpdate);
     $("#updLater").addEventListener("click", () => { updDismissed = updInfo ? updInfo.latest : ""; pill.classList.remove("show"); });
   }
-  $("#updMsg").textContent = updInfo.message ? updInfo.message.split("\n")[0].slice(0, 90) : "Toca para instalarla en segundos.";
+  $("#updMsg").textContent = "Mejoras y novedades. Toca para instalarla en segundos.";
   requestAnimationFrame(() => pill.classList.add("show"));
 }
 async function runUpdate() {
@@ -1522,7 +1522,7 @@ async function runUpdate() {
     step(1, "Descargando la versión nueva…", 55);
     const r = await api("POST", "/api/update");
     if (!r.updated) { step(3, "Ya tienes la última versión.", 100); updInfo = null; $("#updateBtn").hidden = true; await sleep(900); ov.remove(); document.body.classList.remove("updating"); return; }
-    step(2, "Instalando" + (r.message ? ": " + r.message.split("\n")[0].slice(0, 70) : "…"), 85);
+    step(2, "Instalando mejoras…", 85);
     await sleep(600);
     step(3, "Abriendo la versión nueva…", 96);
     for (let i = 0; i < 60; i++) {
@@ -1541,7 +1541,7 @@ $("#checkUpdBtn").addEventListener("click", async () => {
   try {
     const u = await api("GET", "/api/update?force=1");
     if (!u.configured) toast("Las actualizaciones no están configuradas en esta computadora.", 5000);
-    else if (u.error) toast("No pude revisar GitHub: revisa tu internet o el token (menú Reel Studio → Token de GitHub).", 6000);
+    else if (u.error) toast("No pude buscar actualizaciones. Revisa tu conexión a internet e inténtalo de nuevo.", 6000);
     else if (u.available) { updInfo = u; $("#updateBtn").hidden = false; runUpdate(); }
     else toast("Ya tienes la última versión.");
   } catch (e) { toast("No pude buscar actualizaciones: " + e.message, 5000); }
@@ -1941,6 +1941,21 @@ function hideSplash() {
   const wait = Math.max(0, 2500 - (performance.now() - (window.__t0 || 0)));
   setTimeout(() => { sp.classList.add("out"); setTimeout(() => sp.remove(), 1000); }, wait);
 }
+/* ---------------------------------------------------------------- novedades */
+async function showNews(onlyIfNew) {
+  let list = [];
+  try { list = await (await fetch("/static/novedades.json", { cache: "no-store" })).json(); } catch (_) { return; }
+  if (!list.length) return;
+  let seen = null; try { seen = localStorage.getItem("rs-news"); } catch (_) {}
+  try { localStorage.setItem("rs-news", list[0].v); } catch (_) {}
+  if (onlyIfNew && (!seen || seen === list[0].v)) return;
+  $("#newsList").innerHTML = list.map((n, i) => `<section class="${i === 0 ? "first" : ""}"><div class="nv"><b>Versión ${esc(n.v)}</b><span>${esc(n.date)}</span></div>
+    <h3>${esc(n.title)}</h3><ul>${n.items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></section>`).join("");
+  const d = $("#newsDlg"); if (!d.open) d.showModal();
+}
+window.rsNews = () => showNews(false);
+$("#newsBtn").addEventListener("click", () => showNews(false));
+setTimeout(() => showNews(true), 3200);
 window.__t0 = performance.now();
 (function centerLogo() { // el logo empieza solo en el centro y luego se corre para que salga el nombre
   const lk = document.getElementById("lk"); if (!lk) return;

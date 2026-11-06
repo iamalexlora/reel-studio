@@ -315,19 +315,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         let updItem = NSMenuItem(); main.addItem(updItem)
         let upd = NSMenu(title: "Actualizaciones")
         upd.addItem(withTitle: "Buscar actualizaciones…", action: #selector(checkUpdates), keyEquivalent: "u")
-        upd.addItem(withTitle: "Ver qué cambió", action: #selector(openChanges), keyEquivalent: "")
+        upd.addItem(withTitle: "Novedades", action: #selector(showNews), keyEquivalent: "")
         updItem.submenu = upd
 
-        let aboutItem = NSMenuItem(); main.addItem(aboutItem)
-        let about = NSMenu(title: "Acerca de")
-        about.addItem(withTitle: "Acerca de Reel Studio", action: #selector(showAbout), keyEquivalent: "")
-        about.addItem(withTitle: "Créditos y herramientas", action: #selector(showCredits), keyEquivalent: "")
-        about.addItem(.separator())
-        about.addItem(withTitle: "Token de GitHub…", action: #selector(changeToken), keyEquivalent: "")
-        about.addItem(.separator())
-        about.addItem(withTitle: "Mostrar videos exportados", action: #selector(openExports), keyEquivalent: "")
-        about.addItem(withTitle: "Mostrar carpeta de proyectos", action: #selector(openProjects), keyEquivalent: "")
-        aboutItem.submenu = about
         NSApp.mainMenu = main
     }
 
@@ -335,6 +325,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         if web.url?.host == "localhost" { web.reload() } else { DispatchQueue.global().async { self.boot() } }
     }
     @objc func openInBrowser() { NSWorkspace.shared.open(appURL) }
+    @objc func showNews() {
+        NSApp.activate(ignoringOtherApps: true)
+        web.evaluateJavaScript("window.rsNews && window.rsNews()", completionHandler: nil)
+    }
     func versionText() -> String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2"
         let sha = (try? String(contentsOf: root.appendingPathComponent("VERSION"), encoding: .utf8))?
@@ -345,8 +339,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
         let body = """
         Editor de reels para Mac: transcribe, limpia silencios y muletillas, pone subtítulos y animaciones, da color y exporta.
         Todo se procesa en esta computadora.
-
-        Hecho a pedido de iamalexlora, construido con Claude (Anthropic).
 
         Herramientas que usa por dentro
         • FFmpeg: cortes, color, transiciones y exportación (LGPL/GPL)
@@ -372,38 +364,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDe
             .credits: creditsText(),
         ])
     }
-    @objc func showCredits() {
-        let a = NSAlert()
-        a.messageText = "Reel Studio \(versionText())"
-        a.informativeText = creditsText().string
-        a.addButton(withTitle: "Listo")
-        a.addButton(withTitle: "Ver en GitHub")
-        if a.runModal() == .alertSecondButtonReturn {
-            let c = readJSON(root.appendingPathComponent("config/update.json"))
-            let repo = (c["repo"] as? String) ?? "iamalexlora/reel-studio"
-            if let u = URL(string: "https://github.com/\(repo)") { NSWorkspace.shared.open(u) }
-        }
-    }
     @objc func openExports() {
         let p = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Movies/Reel Studio")
         try? FileManager.default.createDirectory(at: p, withIntermediateDirectories: true)
         NSWorkspace.shared.open(p)
     }
-    @objc func openChanges() {
-        let c = readJSON(root.appendingPathComponent("config/update.json"))
-        let repo = (c["repo"] as? String) ?? "iamalexlora/reel-studio"
-        if let u = URL(string: "https://github.com/\(repo)/commits/main") { NSWorkspace.shared.open(u) }
-    }
     @objc func openProjects() {
         let p = root.appendingPathComponent("proyectos")
         try? FileManager.default.createDirectory(at: p, withIntermediateDirectories: true)
         NSWorkspace.shared.open(p)
-    }
-    @objc func changeToken() {
-        let f = root.appendingPathComponent("config/update.json")
-        var c = readJSON(f); c["token"] = ""; c["skipToken"] = false
-        writeJSON(c, f)
-        DispatchQueue.global().async { self.askTokenIfNeeded(f) }
     }
     @objc func checkUpdates() {
         DispatchQueue.global().async {

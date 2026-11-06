@@ -1752,7 +1752,7 @@ function openMake() {
   const d = $("#makeDlg");
   $$("#mVibe button").forEach((b) => b.classList.toggle("on", b.dataset.v === S.make.style));
   const f = S.P.settings.format;
-  $("#mFmt").innerHTML = Object.entries(S.meta.formats).map(([k, v]) => `<button type="button" data-v="${k}" class="${k === f ? "on" : ""}">${fmtShort(k)}</button>`).join("");
+  $("#mFmt").innerHTML = fmtCards(f);
   d.showModal();
 }
 $("#makeBtn").addEventListener("click", openMake);
@@ -1789,11 +1789,23 @@ async function runMake(body) {
 }
 
 /* ---------------------------------------------------------------- inicio guiado */
+const FMT_USE = {
+  vertical: "Reels, TikTok, Stories", horizontal: "YouTube", "4:5": "Feed Instagram",
+  "5:4": "Feed horizontal", cuadrado: "Feed, LinkedIn",
+};
+function fmtCards(sel) {
+  return Object.entries(S.meta.formats).map(([k, v]) => {
+    const r = v.w / v.h, h = 30, w = Math.round(h * r);
+    return `<button type="button" data-v="${k}" class="${k === sel ? "on" : ""}" title="${esc(v.label)}">
+      <span class="fshape" style="width:${Math.min(w, 46)}px;height:${w > 46 ? Math.round(46 / r) : h}px"></span>
+      <b>${fmtShort(k)}</b><span>${FMT_USE[k] || v.label}</span></button>`;
+  }).join("");
+}
 function renderGuide() {
   const P = S.P;
   $$("#gVibe button").forEach((b) => b.classList.toggle("on", b.dataset.v === S.make.style));
   const f = P ? P.settings.format : "vertical";
-  if (S.meta) $("#gFmt").innerHTML = Object.keys(S.meta.formats).map((k) => `<button type="button" data-v="${k}" class="${k === f ? "on" : ""}">${fmtShort(k)}</button>`).join("");
+  if (S.meta) $("#gFmt").innerHTML = fmtCards(f);
   $("#gClips").innerHTML = P ? P.clips.map((c) => {
     const ok = ["listo", "sin voz"].includes(c.status);
     return `<span class="gclip ${ok ? "ok" : ""}">${ok ? "✓" : '<span class="spin"></span>'} ${esc(c.name)}</span>`;

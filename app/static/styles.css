@@ -646,3 +646,14 @@ body.at-home .rz { display: none; }
 .hdel:hover { background: var(--danger); }
 #goHome { cursor: pointer; border-radius: 10px; }
 #goHome:hover { background: var(--field); }
+
+/* formatos con ícono y uso */
+.fmtcards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.fmtcards button { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px 9px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--field); color: inherit; font: 11px/1.25 var(--font); cursor: pointer; text-align: center; transition: border-color .2s, background .2s, transform .15s; min-width: 0; }
+.fmtcards button:hover { transform: translateY(-1px); }
+.fmtcards button.on { border-color: var(--accent); background: var(--accent-soft); }
+.fmtcards .fshape { display: block; border-radius: 4px; border: 2px solid currentColor; opacity: .75; margin: 2px 0 3px; }
+.fmtcards button.on .fshape { color: var(--accent); opacity: 1; background: rgba(10,132,255,.18); }
+.fmtcards b { font-size: 13px; }
+.fmtcards span:last-child { color: var(--muted); font-size: 10.5px; }

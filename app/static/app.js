@@ -121,6 +121,22 @@ function computePlan(P) {
     clock += dur;
   }
   if (st.outro && st.outro.on) items.push({ kind: "card", card: "outro", segs: [], dur: r30(+st.outro.dur || 2.5) });
+  const maxd = +st.maxDur || 0;
+  if (maxd > 0) {
+    let budget = maxd - items.filter((i) => i.kind === "card").reduce((n, i) => n + i.dur, 0);
+    const keep = [];
+    for (let itm of items) {
+      if (itm.kind === "card") { keep.push(itm); continue; }
+      if (budget < 0.5) continue;
+      if (itm.dur > budget) {
+        let left = budget; const segs = [];
+        for (const [a, b] of itm.segs) { const take = Math.min(b - a, left); if (take > 0.05) segs.push([a, a + take]); left -= take; if (left <= 0) break; }
+        itm = { ...itm, segs, dur: segs.reduce((n, [a, b]) => n + b - a, 0) };
+      }
+      budget -= itm.dur; keep.push(itm);
+    }
+    items.length = 0; items.push(...keep);
+  }
   let start = 0;
   items.forEach((itm, j) => {
     let d = 0; itm.ttype = "corte";
@@ -1306,18 +1322,22 @@ function renderMarca() {
 }
 
 /* ---------------------------------------------------------------- pestaña Formato */
+const MAXDUR = [[0, "Sin límite"], [15, "15 s"], [30, "30 s"], [45, "45 s"], [60, "1 min"], [90, "1:30"], [180, "3 min"]];
+function maxDurSeg(id, cur) { cur = +cur || 0; return `<div class="seg" id="${id}">${MAXDUR.map(([v, l]) => `<button type="button" data-v="${v}" class="${cur === v ? "on" : ""}">${l}</button>`).join("")}</div>`; }
 function fmtShort(k) { return k === "vertical" ? "9:16" : k === "horizontal" ? "16:9" : k === "cuadrado" ? "1:1" : k; }
 function renderFormato() {
   const P = S.P, s = P.settings, box = $("#t-formato");
   const desc = { vertical: "Reels, TikTok", horizontal: "YouTube", "4:5": "Feed", "5:4": "Feed horizontal", cuadrado: "Cuadrado" };
   const fm = Object.entries(S.meta.formats).map(([k, f]) => `<button data-f="${k}" class="${s.format === k ? "on" : ""}"><i style="width:${Math.round(24 * f.w / f.h)}px"></i><b>${fmtShort(k)}</b><span>${desc[k]}</span></button>`).join("");
   const G = geom(), mixed = P.clips.some((c) => c.width && Math.abs(c.width / c.height - G.W / G.H) > 0.01);
-  box.innerHTML = `<div class="sec"><h3>Formato del video</h3><div class="formats" id="fmtGrid">${fm}</div>
+  box.innerHTML = `<div class="sec"><h3>Duración máxima</h3>${maxDurSeg("maxSeg", s.maxDur)}<p class="fine">Si el video queda más largo, se recorta al final (la intro y el cierre se respetan).</p></div>
+    <div class="sec"><h3>Formato del video</h3><div class="formats" id="fmtGrid">${fm}</div>
       <p class="fine">La resolución (720p, 1080p, 2K o 4K) y los fotogramas (24, 30 o 60) se eligen al exportar.</p></div>
     ${mixed ? `<div class="sec"><h3>Clips con otra forma</h3><div class="field"><label>Cómo encajan</label><div class="seg" id="fitSeg"><button data-v="llenar" class="${s.fit === "llenar" ? "on" : ""}">Recortar</button><button data-v="difuminado" class="${s.fit === "difuminado" ? "on" : ""}">Fondo difuminado</button></div></div>
       ${slider("cxR", "Mover el encuadre (horizontal)", s.cropX, 0, 1, 0.01, Math.round(s.cropX * 100) + " %")}${slider("cyR", "Mover el encuadre (vertical)", s.cropY, 0, 1, 0.01, Math.round(s.cropY * 100) + " %")}
       <p class="fine">Cada clip puede tener su propio encuadre en la pestaña Clips.</p></div>` : ""}
     <div class="sec"><h3>Tus clips</h3>${P.clips.map((c) => `<p class="fine">«${esc(c.name)}»: ${c.width || "?"}×${c.height || "?"} · ${c.fps ? Math.round(c.fps) : "?"} fps${c.hdr ? " · HDR" : ""}</p>`).join("") || '<p class="fine">Sin clips todavía.</p>'}</div>`;
+  $("#maxSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.maxDur = +b.dataset.v; changed(); seek(Math.min(S.outT, S.plan.total)); };
   $("#fmtGrid").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.format = b.dataset.f; changed(); sizeScreen(); seek(S.outT); };
   if ($("#fitSeg")) $("#fitSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; pushHistory(); s.fit = b.dataset.v; changed(); seek(S.outT); };
   bindRange("cxR", (v) => { s.cropX = v; seek(S.outT); }, (v) => Math.round(v * 100) + " %");
@@ -1846,6 +1866,7 @@ function renderGuide() {
   const ref = P && P.reference;
   $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
+  if (P && $("#gMax") && !$("#gMax").querySelector("button")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
   if (P && !S._gSubsInit) { $("#gSubs").checked = P.settings.subtitles !== false; S._gSubsInit = true; }
   const ready = !!(P && P.clips.length);
   $("#gGo").disabled = !ready;
@@ -1868,6 +1889,11 @@ $("#gChips").addEventListener("click", (e) => {
   const t = $("#gPrompt"), add = b.textContent.toLowerCase();
   t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus();
 });
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("#gMax button"); if (!b) return;
+  $$("#gMax button").forEach((x) => x.classList.toggle("on", x === b));
+  if (S.P) { S.P.settings.maxDur = +b.dataset.v; scheduleSave(); }
+});
 $("#gManual").addEventListener("click", (e) => { e.preventDefault(); if (!S.P) return; S.P.guide = false; scheduleSave(); render(); });
 $("#gGo").addEventListener("click", async () => {
   const P = S.P; if (!P || !P.clips.length) return toast("Primero elige tus videos (paso 1).");
@@ -1878,6 +1904,7 @@ $("#gGo").addEventListener("click", async () => {
   }
   const fmtB = $("#gFmt button.on");
   runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,
+    maxDur: +(($("#gMax button.on") || {}).dataset?.v || 0),
     clean: true, subtitles: $("#gSubs").checked, anims: $("#gAnims").checked, highlight: true, prompt });
   $("#gPrompt").value = "";
 });

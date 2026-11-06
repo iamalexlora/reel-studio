@@ -206,6 +206,7 @@ DEFAULT_SETTINGS = {
     "music": {"file": "", "name": "", "volume": 0.35, "duck": True, "fadeIn": 1.0, "fadeOut": 2.0,
               "start": 0.0, "beatSync": False, "tempo": 0, "beats": [], "duration": 0},
     "brand": "",
+    "maxDur": 0,
     "logo": {"on": False, "pos": "arriba-derecha", "size": 0.14, "opacity": 0.9},
     "intro": {"on": False, "text": "", "dur": 2.0},
     "outro": {"on": False, "text": "", "dur": 2.5},
@@ -874,6 +875,30 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
     if st.get("outro", {}).get("on"):
         items.append({"kind": "card", "card": "outro", "segs": [],
                       "dur": round(float(st["outro"].get("dur", 2.5)) * fps) / fps})
+    # Duración máxima elegida por el usuario: recorta los clips (intro y cierre se respetan)
+    maxd = float(st.get("maxDur") or 0)
+    if maxd > 0:
+        budget = maxd - sum(i["dur"] for i in items if i["kind"] == "card")
+        keep = []
+        for itm in items:
+            if itm["kind"] == "card":
+                keep.append(itm)
+                continue
+            if budget < 0.5:
+                continue
+            if itm["dur"] > budget:
+                left, segs = budget, []
+                for a0, b0 in itm["segs"]:
+                    take = min(b0 - a0, left)
+                    if take > 0.05:
+                        segs.append([a0, round(a0 + take, 4)])
+                    left -= take
+                    if left <= 0:
+                        break
+                itm = dict(itm, segs=segs, dur=round(sum(b - a for a, b in segs), 4))
+            budget -= itm["dur"]
+            keep.append(itm)
+        items = keep
     start = 0.0
     for j, itm in enumerate(items):
         d = 0.0

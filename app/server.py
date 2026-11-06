@@ -273,6 +273,8 @@ def make_video(pid: str, o: dict) -> dict:
             if o.get("format") in E.FORMATS:
                 st["format"] = o["format"]
             st["pace"] = vibe["pace"]
+            if o.get("maxDur") is not None:
+                st["maxDur"] = max(0, int(o.get("maxDur") or 0))
             st["subtitles"] = bool(o.get("subtitles", True))
             st["removeSilences"] = bool(o.get("clean", True))
             st["transition"] = {"type": vibe["trans"], "dur": vibe["tdur"]}

@@ -757,3 +757,21 @@ input, textarea, select, [contenteditable="true"], .textin { -webkit-user-select
 .glider { will-change: transform; transform-origin: 50% 50%; }
 .glider.lens, .glide-cards > .glider.lens { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .tabs.has-glider > button, .seg.has-glider > button { transition: color .2s; }
+
+/* panel «Haciendo tu video» */
+#makeOv { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; border-radius: inherit; background: rgba(0,0,0,.35);
+  -webkit-backdrop-filter: blur(16px) saturate(120%); backdrop-filter: blur(16px) saturate(120%); animation: appIn .4s ease both; }
+.mk-card { width: min(420px, calc(100% - 40px)); padding: 28px 26px 22px; border-radius: 26px; text-align: center; background: var(--glass-strong); box-shadow: 0 30px 80px -30px rgba(0,0,0,.7); }
+.mk-orb { position: relative; width: 132px; height: 132px; margin: 0 auto 14px; }
+.mk-orb svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.mk-orb circle { fill: none; stroke-width: 8; }
+.mk-orb .trk { stroke: rgba(127,127,127,.18); }
+.mk-orb .arc { stroke: url(#none); stroke: #0a84ff; stroke-linecap: round; stroke-dasharray: 326.7; stroke-dashoffset: 326.7; transition: stroke-dashoffset .9s cubic-bezier(.3,.7,.2,1); filter: drop-shadow(0 0 8px rgba(10,132,255,.6)); }
+.mk-pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 28px; letter-spacing: -.03em; }
+.mk-card h2 { margin: 0 0 6px; font-size: 19px; }
+.mk-msg { margin: 0; font-size: 13.5px; min-height: 20px; }
+.mk-eta { margin: 4px 0 14px; color: var(--accent) !important; font-weight: 600; }
+.mk-btns { display: flex; justify-content: center; gap: 8px; }
+.mk-note { margin: 12px 0 0; }
+.hbusy { position: absolute; left: 8px; top: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: #fff; background: rgba(10,132,255,.9); }
+.hbusy .spin { width: 10px; height: 10px; }

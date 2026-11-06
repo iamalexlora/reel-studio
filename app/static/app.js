@@ -267,6 +267,7 @@ function renderHome() {
   g.innerHTML = `<button class="hcard new" data-new="1"><span class="plus">＋</span><b>Nuevo proyecto</b><span class="fine">Sube tus videos y te guío paso a paso</span></button>` +
     L.map((p) => `<a class="hcard" href="#${p.id}" data-open="${p.id}">
       <span class="hthumb" style="${p.thumb ? `background-image:url(/media/${p.id}/file/${p.thumb}_thumb.jpg)` : ""}">${p.thumb ? "" : '<span class="fine">Sin videos aún</span>'}</span>
+      ${S.makeJobs[p.id] ? `<span class="hbusy"><span class="spin"></span> Haciendo el video · ${Math.round((S.makeJobs[p.id].progress || 0) * 100)}%</span>` : ""}
       <span class="hinfo"><b>${esc(p.name)}</b><span class="fine">${p.clips} clip${p.clips === 1 ? "" : "s"} · ${fmt(p.outDuration)} · ${ago(p.updated)}</span></span>
       <button class="hdel" data-hdel="${p.id}" title="Borrar proyecto" aria-label="Borrar ${esc(p.name)}">✕</button></a>`).join("");
 }
@@ -309,7 +310,7 @@ $("#goHome").addEventListener("keydown", (e) => { if (e.key === "Enter") showHom
 
 async function openProject(id) {
   if (!id) { showHome(); return; }
-  hideHome();
+  hideHome(); setTimeout(renderMakeOv, 0);
   let P;
   try { P = await api("GET", "/api/projects/" + id); } catch (_) { toast("No encontré ese proyecto."); location.hash = ""; return; }
   const isNew = !S.P || S.P.id !== id;
@@ -420,6 +421,7 @@ async function poll() {
       }
     }
     const jobs = await api("GET", "/api/jobs");
+    trackMakes(jobs);
     const mine = S.P ? jobs.filter((j) => j.project === S.P.id) : [];
     if (!S.uploading) {
       $("#jobChip").hidden = !mine.length;
@@ -1844,23 +1846,60 @@ async function runMake(body) {
   const pid = S.P.id;
   if (S.P.guide) { S.P.guide = false; scheduleSave(); }
   await flushSave(); pushHistory(); render();
-  let j;
-  try { j = await api("POST", `/api/projects/${pid}/make`, body); } catch (e) { return toast(e.message, 5000); }
-  document.body.classList.add("making");
-  toast("Haciendo tu video. Puedes seguir mirando mientras tanto.", 3500);
-  for (;;) {
-    await sleep(1200);
-    try { j = await api("GET", `/api/jobs/${j.id}`); } catch (_) { continue; }
-    if (j.status !== "running") break;
-    if (S.P && S.P.id === pid && !S.dirty && j.progress > 0.2 && j.progress < 0.55 && !S._makeLoaded) { S._makeLoaded = true; await openProject(pid); }
+  let jb;
+  try { jb = await api("POST", `/api/projects/${pid}/make`, body); } catch (e) { return toast(e.message, 5000); }
+  S.makeJobs = S.makeJobs || {};
+  S.makeJobs[pid] = { ...jb, started: jb.started || Date.now() / 1000 };
+  renderMakeOv();
+}
+
+/* «Hacer mi video» en marcha: panel con progreso y tiempo restante; se puede cambiar de proyecto */
+S.makeJobs = {};
+function etaText(j) {
+  const p = j.progress || 0, el = Date.now() / 1000 - (j.started || Date.now() / 1000);
+  if (p < 0.06 || el < 4) return "Calculando el tiempo…";
+  const left = Math.max(5, el * (1 - p) / p);
+  return left < 60 ? `Quedan unos ${Math.ceil(left / 5) * 5} segundos` : `Quedan unos ${Math.round(left / 60)} min`;
+}
+function renderMakeOv() {
+  let ov = $("#makeOv");
+  const j = S.P && S.makeJobs[S.P.id];
+  document.body.classList.toggle("making", !!j);
+  if (!j) { if (ov) ov.remove(); return; }
+  if (!ov) {
+    ov = document.createElement("div"); ov.id = "makeOv";
+    ov.innerHTML = `<div class="mk-card glass"><div class="mk-orb"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="arc"/></svg><b class="mk-pct">0%</b></div>
+      <h2>Haciendo tu video</h2><p class="mk-msg"></p><p class="mk-eta fine"></p>
+      <div class="mk-btns"><button class="btn" type="button" id="mkHome">Ir a mis proyectos</button></div>
+      <p class="fine mk-note">Puedes cambiar de proyecto o cerrar esta ventana: el video se sigue haciendo y te aviso cuando esté listo.</p></div>`;
+    $("#viewer").appendChild(ov);
+    ov.querySelector("#mkHome").onclick = () => showHome();
   }
-  document.body.classList.remove("making"); S._makeLoaded = false;
-  if (j.status === "error") return toast("No se pudo terminar: " + j.error, 7000);
-  if (!S.P || S.P.id !== pid) return toast("Tu video está listo.");
-  await openProject(pid);
-  S.previewReady = pid; $("#renderToggleWrap").hidden = false; $("#renderToggle").checked = true;
-  seek(0); setRender(true); play();
-  toast("¡Listo! Así queda tu video. Cambia lo que quieras y exporta.", 5000);
+  const p = Math.max(0.02, j.progress || 0);
+  ov.querySelector(".arc").style.strokeDashoffset = (326.7 * (1 - p)).toFixed(1);
+  ov.querySelector(".mk-pct").textContent = Math.round(p * 100) + "%";
+  ov.querySelector(".mk-msg").textContent = j.message || "Preparando…";
+  ov.querySelector(".mk-eta").textContent = etaText(j);
+}
+async function trackMakes(jobs) {
+  const now = {};
+  jobs.filter((x) => x.kind === "make").forEach((x) => (now[x.project] = x));
+  for (const pid in S.makeJobs) {
+    if (now[pid]) continue;
+    const old = S.makeJobs[pid]; delete S.makeJobs[pid];
+    let fin = null; try { fin = await api("GET", `/api/jobs/${old.id}`); } catch (_) {}
+    const name = (S.projects.find((x) => x.id === pid) || {}).name || "tu proyecto";
+    if (fin && fin.status === "error") { toast(`«${name}»: no se pudo terminar. ${fin.error || ""}`, 7000); continue; }
+    if (S.P && S.P.id === pid) {
+      renderMakeOv(); await openProject(pid);
+      S.previewReady = pid; $("#renderToggleWrap").hidden = false; $("#renderToggle").checked = true;
+      seek(0); setRender(true); play();
+      toast("¡Listo! Así queda tu video. Cambia lo que quieras y exporta.", 5000);
+    } else toast(`✓ «${name}» está listo. Ábrelo desde tus proyectos.`, 6000);
+  }
+  Object.assign(S.makeJobs, now);
+  renderMakeOv();
+  if (!$("#home").hidden) renderHome();
 }
 
 /* ---------------------------------------------------------------- inicio guiado */

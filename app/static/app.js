@@ -853,7 +853,8 @@ function orderedClips() {
   return out;
 }
 function setSubs(on) {
-  pushHistory(); S.P.settings.subtitles = !!on; changed();
+  pushHistory(); S.P.settings.subtitles = !!on; changed(); syncCC(); S.capKey = null; drawFrame();
+  const t = $("#subsOnT"); if (t) t.checked = !!on; const e = $("#subsOn"); if (e) e.checked = !!on;
   toast(on ? "Subtítulos activados." : "Subtítulos ocultos. Puedes volver a activarlos con CC.");
 }
 function syncCC() { const b = $("#ccBtn"); if (b && S.P) b.classList.toggle("on", !!S.P.settings.subtitles); }

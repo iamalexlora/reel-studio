@@ -713,3 +713,20 @@ html.mac-app .rz-side, html.mac-app .rz-insp { margin-top: 0; }
 .steps .step:nth-child(2) { grid-column: 1 / -1; order: -1; }
 .steps .step:nth-child(1) { order: -2; grid-column: 1 / -1; }
 .vibes.compact { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+/* inicio guiado: fondo parejo al bajar y botón siempre a la vista */
+.dropzone { border: 0; background: linear-gradient(var(--glass-strong), var(--glass-strong)), var(--bg); background-attachment: local, local; }
+.dropzone::before { display: none; }
+#app.dragging .dropzone { outline: 2px dashed var(--accent); outline-offset: -8px; }
+.guide { padding-bottom: 0; }
+.steps { gap: 14px; }
+.step { padding: 16px 18px 18px 60px; }
+.vibes.compact button { padding: 10px 12px; min-height: 0; }
+.fmtcards button { padding: 8px 4px 8px; }
+.gactions { position: sticky; bottom: 0; z-index: 4; margin: 14px -26px 0; padding: 14px 26px 18px; display: flex; align-items: center; gap: 16px;
+  background: linear-gradient(to bottom, transparent, var(--glass-strong) 35%); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line); }
+.gactions .gnote { color: var(--muted); font-size: 13px; }
+.btn.magic:disabled { opacity: 1; filter: none; background: var(--field); color: var(--muted); box-shadow: none; border: 1px solid var(--line); cursor: not-allowed; }
+.vibes.compact { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .vibes.compact { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } }

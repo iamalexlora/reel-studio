@@ -1847,7 +1847,9 @@ function renderGuide() {
   $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
   if (P && !S._gSubsInit) { $("#gSubs").checked = P.settings.subtitles !== false; S._gSubsInit = true; }
-  $("#gGo").disabled = !(P && P.clips.length);
+  const ready = !!(P && P.clips.length);
+  $("#gGo").disabled = !ready;
+  $("#gNote").textContent = ready ? `${P.clips.length} video${P.clips.length > 1 ? "s" : ""} · estilo ${(VIBES.find((v) => v[0] === S.make.style) || [, ""])[1]}` : "Primero elige tus videos en el paso 1";
   $("#gManual").hidden = !(P && P.clips.length);
 }
 $("#gVibe").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.make.style = b.dataset.v; renderGuide(); });

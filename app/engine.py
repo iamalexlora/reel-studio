@@ -207,6 +207,7 @@ DEFAULT_SETTINGS = {
               "start": 0.0, "beatSync": False, "tempo": 0, "beats": [], "duration": 0},
     "brand": "",
     "maxDur": 0,
+    "autoTranscribe": False,
     "logo": {"on": False, "pos": "arriba-derecha", "size": 0.14, "opacity": 0.9},
     "intro": {"on": False, "text": "", "dur": 2.0},
     "outro": {"on": False, "text": "", "dur": 2.5},
@@ -851,7 +852,7 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
     clock = items[0]["dur"] if items else 0.0
     for it in p.get("timeline", []):
         c = clip_by_id(p, it["clip"])
-        if not c or c.get("status") not in ("listo", "sin voz") or not c.get("hasVideo", True):
+        if not c or c.get("status") not in ("listo", "sin voz", "sin transcribir") or not c.get("hasVideo", True):
             continue
         segs = item_segments(p, it)
         if not segs:
@@ -1415,7 +1416,7 @@ def apply_reference(p: dict) -> list[str]:
 
 def match_clips_color(p: dict, progress=lambda f, m="": None) -> int:
     """Iguala brillo, saturación y temperatura de los clips hacia el promedio."""
-    clips = [c for c in p["clips"] if c.get("status") in ("listo", "sin voz") and c.get("hasVideo", True)]
+    clips = [c for c in p["clips"] if c.get("status") in ("listo", "sin voz", "sin transcribir") and c.get("hasVideo", True)]
     for i, c in enumerate(clips):
         if not c.get("stats"):
             progress(i / max(1, len(clips)), f"Midiendo {c['name']}…")
@@ -1438,7 +1439,7 @@ def match_clips_color(p: dict, progress=lambda f, m="": None) -> int:
 
 def auto_assemble(p: dict) -> str:
     """Primer armado: clips con voz en orden como principales; los demás, como apoyo o montaje."""
-    ready = [c for c in p["clips"] if c.get("status") in ("listo", "sin voz") and c.get("hasVideo", True)]
+    ready = [c for c in p["clips"] if c.get("status") in ("listo", "sin voz", "sin transcribir") and c.get("hasVideo", True)]
     speech = [c for c in ready if c.get("speech")]
     other = [c for c in ready if not c.get("speech")]
     if (p.get("reference") or {}).get("analysis"):
@@ -1670,7 +1671,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     broll_jobs = []
     for b in p["broll"]:
         c = clip_by_id(p, b["clip"])
-        if not c or c.get("status") not in ("listo", "sin voz"):
+        if not c or c.get("status") not in ("listo", "sin voz", "sin transcribir"):
             continue
         at = pl["mainStart"] + float(b["at"])
         dur = min(float(b["dur"]), max(0.0, total - at), float(c.get("duration", 0)) - float(b.get("srcIn", 0)))

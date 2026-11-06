@@ -101,7 +101,7 @@ function computePlan(P) {
   let clock = items.length ? items[0].dur : 0;
   for (const it of P.timeline) {
     const c = clipOf(it.clip);
-    if (!c || !["listo", "sin voz"].includes(c.status) || c.hasVideo === false) continue;
+    if (!c || !["listo", "sin voz", "sin transcribir"].includes(c.status) || c.hasVideo === false) continue;
     let segs = itemSegments(P, it);
     if (!segs.length) continue;
     if (!c.speech) {
@@ -346,7 +346,7 @@ function render() {
   recompute();
   $("#makeBtn").disabled = !P.clips.length;
   ["#exportBtn", "#previewBtn"].forEach((s) => ($(s).disabled = !(S.plan && S.plan.items.length)));
-  $("#assembleBtn").disabled = !P.clips.some((c) => ["listo", "sin voz"].includes(c.status));
+  $("#assembleBtn").disabled = !P.clips.some((c) => ["listo", "sin voz", "sin transcribir"].includes(c.status));
   $("#playBtn").disabled = !(S.plan && S.plan.items.length);
   $("#undoBtn").disabled = !S.history.length;
   $("#renderToggleWrap").hidden = !S.previewReady || S.previewReady !== P.id;
@@ -832,7 +832,7 @@ function renderTimeline() {
     }
     if (j > 0) mh += `<div class="tchip ${S.selJunction === j ? "on" : ""}" data-junction="${j}" style="left:${(itm.start + itm.tdur / 2) * pps}px" title="${TRANS_LABEL[itm.ttype] || "Corte"}"></div>`;
   });
-  const pending = P.clips.filter((c) => !["listo", "sin voz"].includes(c.status));
+  const pending = P.clips.filter((c) => !["listo", "sin voz", "sin transcribir"].includes(c.status));
   if (pending.length) mh += `<div class="fine" style="position:absolute;right:8px;top:20px">${pending.length} clip${pending.length > 1 ? "s" : ""} procesándose…</div>`;
   if (!S.plan.items.length && !pending.length && P.clips.length) mh += `<div class="fine" style="position:absolute;left:10px;top:20px">La secuencia está vacía. Usa «Armar video» o la pestaña Clips.</div>`;
   $("#laneMain").innerHTML = mh;
@@ -934,8 +934,12 @@ function renderTexto() {
   const P = S.P, box = $("#t-texto");
   const speechClips = orderedClips().filter((c) => c.speech);
   if (!speechClips.length) {
-    const busy = P.clips.some((c) => !["listo", "sin voz"].includes(c.status));
-    box.innerHTML = `<p class="empty-note">${busy ? "Transcribiendo… el texto aparece aquí en cuanto termine." : P.clips.length ? "Ningún clip tiene voz. Arma el montaje en la línea de tiempo y la pestaña Clips." : "Agrega videos para ver aquí lo que se dice."}</p>`;
+    const busy = P.clips.some((c) => !["listo", "sin voz", "sin transcribir"].includes(c.status));
+    const pendT = P.clips.filter((c) => c.status === "sin transcribir").length;
+    box.innerHTML = pendT && !busy
+      ? `<p class="empty-note">Tus videos aún no están transcritos (${pendT}). Transcríbelos para tener subtítulos y poder cortar silencios y muletillas.</p><button class="btn primary" id="tNow">Transcribir ahora</button>`
+      : `<p class="empty-note">${busy ? "Procesando… el texto aparece aquí en cuanto termine." : P.clips.length ? "Ningún clip tiene voz. Arma el montaje en la línea de tiempo y la pestaña Clips." : "Agrega videos para ver aquí lo que se dice."}</p>`;
+    const tb = $("#tNow"); if (tb) tb.onclick = () => transcribeNow();
     return;
   }
   const W = P.words, html = [`<div class="row-f subsrow"><label for="subsOnT"><b>Subtítulos en el video</b><span class="fine" style="display:block;margin:0">Apagarlos no borra el texto: sigue sirviendo para cortar.</span></label><input type="checkbox" class="switch" id="subsOnT" ${P.settings.subtitles ? "checked" : ""}></div>
@@ -1096,7 +1100,7 @@ function roleOf(id) {
 function renderClips() {
   const P = S.P, box = $("#t-clip");
   const list = orderedClips().map((c) => {
-    const role = roleOf(c.id), st = !["listo", "sin voz"].includes(c.status) ? "procesando…" : `${fmt(c.duration)} · ${c.width}×${c.height} · ${Math.round(c.fps)} fps${c.hdr ? " · HDR" : ""}`;
+    const role = roleOf(c.id), st = !["listo", "sin voz", "sin transcribir"].includes(c.status) ? "procesando…" : `${fmt(c.duration)} · ${c.width}×${c.height} · ${Math.round(c.fps)} fps${c.hdr ? " · HDR" : ""}`;
     return `<div class="clipcard ${S.selClip === c.id ? "on" : ""}" data-clip="${c.id}">
       <img src="/media/${P.id}/file/${c.id}_thumb.jpg" alt="" onerror="this.style.visibility='hidden'">
       <div><b>${esc(c.name)}</b><small><span class="tag ${c.speech ? "voz" : ""}">${c.speech ? "Voz" : "Imagen"}</span><span class="tag">${{ principal: "Principal", apoyo: "Apoyo", fuera: "Sin usar" }[role]}</span>${c.muted ? '<span class="tag">Sin audio</span>' : ""}${st}</small></div></div>`;
@@ -1879,13 +1883,15 @@ function renderGuide() {
   const f = P ? P.settings.format : "vertical";
   if (S.meta) $("#gFmt").innerHTML = fmtCards(f);
   $("#gClips").innerHTML = P ? P.clips.map((c) => {
-    const ok = ["listo", "sin voz"].includes(c.status);
+    const ok = ["listo", "sin voz", "sin transcribir"].includes(c.status);
+    if (c.status === "sin transcribir") return `<span class="gclip ok">✓ ${esc(c.name)} <span class="fine" style="margin:0">· sin transcribir</span></span>`;
     return `<span class="gclip ${ok ? "ok" : ""}">${ok ? "✓" : '<span class="spin"></span>'} ${esc(c.name)}</span>`;
   }).join("") : "";
   const ref = P && P.reference;
   $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
   if (P && $("#gMax") && !$("#gMax").querySelector("input")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
+  if (P) $("#gAutoT").checked = !!P.settings.autoTranscribe;
   if (P && !S._gSubsInit) { $("#gSubs").checked = P.settings.subtitles !== false; S._gSubsInit = true; }
   const ready = !!(P && P.clips.length);
   $("#gGo").disabled = !ready;
@@ -1908,6 +1914,11 @@ $("#gChips").addEventListener("click", (e) => {
   const t = $("#gPrompt"), add = b.textContent.toLowerCase();
   t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus();
 });
+$("#gAutoT").addEventListener("change", (e) => { if (S.P) { S.P.settings.autoTranscribe = e.target.checked; scheduleSave(); } });
+async function transcribeNow(cid) {
+  if (!S.P) return; await flushSave();
+  try { await api("POST", `/api/projects/${S.P.id}/transcribe/${cid || "todos"}`, {}); toast("Transcribiendo… puedes seguir editando."); } catch (e) { toast(e.message, 5000); }
+}
 $("#gManual").addEventListener("click", (e) => { e.preventDefault(); if (!S.P) return; S.P.guide = false; scheduleSave(); render(); });
 $("#gGo").addEventListener("click", async () => {
   const P = S.P; if (!P || !P.clips.length) return toast("Primero elige tus videos (paso 1).");

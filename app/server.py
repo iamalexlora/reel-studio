@@ -53,9 +53,14 @@ def run_job(j, fn):
 
 # ---------------------------------------------------------------- trabajos de clips
 
-def process_clip(pid: str, cid: str):
-    """Analiza un clip recién subido, prepara miniaturas y lo transcribe."""
+READY = ("listo", "sin voz", "sin transcribir")
+
+
+def process_clip(pid: str, cid: str, transcribe=None):
+    """Analiza un clip recién subido, prepara miniaturas y (si se pide) lo transcribe."""
     p = E.load(pid)
+    if transcribe is None:
+        transcribe = bool(p["settings"].get("autoTranscribe", False))
     c = E.clip_by_id(p, cid)
     try:
         info = E.probe(E.clip_path(p, c))
@@ -72,14 +77,20 @@ def process_clip(pid: str, cid: str):
         cc["status"] = "en cola"
         if not q["timeline"] and not q["broll"] and len(q["clips"]) == 1 and info["width"] > info["height"] * 1.05:
             q["settings"]["format"] = "horizontal"
-        q["timeline"].append({"clip": cid, "in": 0.0, "out": round(info["duration"], 3)})
+        if not any(i.get("clip") == cid for i in q["timeline"]) and not any(b.get("clip") == cid for b in q["broll"]):
+            q["timeline"].append({"clip": cid, "in": 0.0, "out": round(info["duration"], 3)})
     E.update(pid, fn)
     j = new_job("transcribe", pid, c["name"])
 
     def work(prog):
         prog(0.01, f"Preparando «{c['name']}»…")
         q1 = E.load(pid)
-        E.make_clip_media(q1, E.clip_by_id(q1, cid))
+        if not E.clip_by_id(q1, cid).get("strip") or not transcribe:
+            E.make_clip_media(q1, E.clip_by_id(q1, cid))
+        if not transcribe:
+            stats = E.clip_stats(E.clip_path(q1, E.clip_by_id(q1, cid)))
+            E.update(pid, lambda q: E.clip_by_id(q, cid).update(status="sin transcribir", job=None, stats=stats))
+            return {"words": 0, "speech": None}
         with HEAVY:
             E.update(pid, lambda q: E.clip_by_id(q, cid).update(status="transcribiendo", job=j["id"]))
             q0 = E.load(pid)
@@ -252,9 +263,19 @@ def make_video(pid: str, o: dict) -> dict:
 
     def work(prog):
         prog(0.02, "Esperando que terminen de procesarse tus clips…")
+        need_t = bool(o.get("subtitles", True) or o.get("clean", True))
+        if need_t:
+            for _ in range(600):  # que primero terminen de prepararse, luego transcribir lo pendiente
+                q = E.load(pid)
+                if not any(c.get("status") == "en cola" and not c.get("job") for c in q["clips"]):
+                    break
+                time.sleep(0.5)
+            for c in E.load(pid)["clips"]:
+                if c.get("status") == "sin transcribir":
+                    process_clip(pid, c["id"], True)
         for _ in range(1800):
             p = E.load(pid)
-            busy = [c for c in p["clips"] if c.get("status") not in ("listo", "sin voz")]
+            busy = [c for c in p["clips"] if c.get("status") not in (("listo", "sin voz") if need_t else READY)]
             ref = p.get("reference") or {}
             if ref.get("file") and not ref.get("analysis") and any(
                     j0["kind"] == "reference" and j0["project"] == pid and j0["status"] == "running" for j0 in JOBS.values()):
@@ -675,7 +696,11 @@ class H(BaseHTTPRequestHandler):
                                      f"palabras de tomas repetidas.")
             return self.send_json(E.update(pid, fn))
         if action == "transcribe" and rest:
-            return self.send_json(process_clip(pid, rest[0]))
+            if rest[0] == "todos":
+                p = E.load(pid)
+                js = [process_clip(pid, c["id"], True) for c in p["clips"] if c.get("status") == "sin transcribir"]
+                return self.send_json({"jobs": [j0["id"] for j0 in js]})
+            return self.send_json(process_clip(pid, rest[0], True))
         if action in ("export", "preview"):
             opts = self.body_json()
             if action == "preview":

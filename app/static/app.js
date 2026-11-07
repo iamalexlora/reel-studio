@@ -529,11 +529,12 @@ function locate(t) {
 }
 function videoFilter(clipId) {
   const P = S.P, g = P.settings.grade || {}, c = clipOf(clipId) || {}, a = c.adjust || {};
+  const cl = (v, m) => Math.max(-m, Math.min(m, +v || 0));
   const look = (S.meta.looks[g.look] || {}).css || "";
-  const ex = (+g.exposure || 0) + (+a.exposure || 0), co = +g.contrast || 0, sa = (+g.saturation || 0) + (+a.saturation || 0);
-  const te = (+g.temperature || 0) + (+a.temperature || 0);
-  let f = look + ` brightness(${1 + ex * 0.22}) contrast(${1 + co * 0.35}) saturate(${Math.max(0, 1 + sa * 0.6)})`;
-  if (te > 0) f += ` sepia(${te * 0.22}) saturate(${1 + te * 0.1})`; else if (te < 0) f += ` hue-rotate(${-te * 10}deg) brightness(${1 - te * 0.02})`;
+  const ex = (+g.exposure || 0) + cl(a.exposure, 0.2), co = +g.contrast || 0, sa = (+g.saturation || 0) + cl(a.saturation, 0.12);
+  const te = (+g.temperature || 0) + cl(a.temperature, 0.15);
+  let f = look + ` brightness(${1 + ex * 0.12}) contrast(${1 + co * 0.25}) saturate(${Math.max(0, 1 + sa * 0.5)})`;
+  if (te > 0) f += ` sepia(${te * 0.12})`; else if (te < 0) f += ` hue-rotate(${-te * 6}deg)`;
   return f;
 }
 function show(loc) {
@@ -679,6 +680,8 @@ function syncMusic(force) {
   const t = ((+m.start || 0) + S.outT) % dur;
   if (force || Math.abs(music.currentTime - t) > 0.3) { try { music.currentTime = t; } catch (_) {} }
   let vol = +m.volume || 0.35;
+  const anyVoice = (S.P.settings.voice && S.P.settings.voice.file) || S.plan.items.some((i) => i.speech && !(clipOf(i.clip) || {}).muted);
+  if (!anyVoice) vol = 1; // sin voces la música es lo principal
   if (m.duck && S.cur && S.cur.itm.speech) vol *= 0.4;
   const fi = +m.fadeIn || 0, fo = +m.fadeOut || 0;
   if (fi && S.outT < fi) vol *= S.outT / fi;

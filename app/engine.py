@@ -104,6 +104,21 @@ def has_encoder(name: str) -> bool:
     return f" {name} " in _list("encoders")
 
 
+def has_filter(name: str) -> bool:
+    return f" {name} " in _list("filters")
+
+
+def hdr_to_sdr(c: dict) -> str:
+    """HDR (HLG/PQ del iPhone) a SDR con mapeo de tonos real; sin esto los colores salen lavados o pasados."""
+    trc = (c.get("color") or {}).get("transfer") or "arib-std-b67"
+    tin = "smpte2084" if trc == "smpte2084" else "arib-std-b67"
+    if has_filter("zscale") and has_filter("tonemap"):
+        return (f"zscale=tin={tin}:pin=bt2020:min=bt2020nc:t=linear:npl=203,format=gbrpf32le,"
+                "zscale=p=bt709,tonemap=mobius:param=0.35:desat=0,"
+                "zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
+    return "colorspace=all=bt709:iall=bt2020:fast=1:format=yuv420p"
+
+
 def graph_args(gfile: Path) -> list[str]:
     return ["-/filter_complex", str(gfile)] if ffmpeg_major() >= 7 else ["-filter_complex_script", str(gfile)]
 
@@ -169,11 +184,11 @@ FONTS = ["Poppins Black", "Poppins ExtraBold", "Poppins", "Anton", "Bebas Neue"]
 # Looks de color: filtros de ffmpeg (SDR) y su aproximación CSS para la vista previa en vivo.
 LOOKS = {
     "natural": {"label": "Natural", "ff": "", "css": ""},
-    "vivo": {"label": "Vivo", "ff": "vibrance=intensity=0.25,eq=contrast=1.06:saturation=1.12",
-             "css": "saturate(1.25) contrast(1.06)"},
-    "calido": {"label": "Cálido", "ff": "colortemperature=temperature=5200:mix=0.85,eq=saturation=1.06",
-               "css": "sepia(.18) saturate(1.12) hue-rotate(-6deg)"},
-    "frio": {"label": "Frío", "ff": "colortemperature=temperature=8200:mix=0.85,eq=contrast=1.04",
+    "vivo": {"label": "Vivo", "ff": "vibrance=intensity=0.12,eq=contrast=1.04:saturation=1.05",
+             "css": "saturate(1.1) contrast(1.04)"},
+    "calido": {"label": "Cálido", "ff": "colortemperature=temperature=5600:mix=0.5,eq=saturation=1.06",
+               "css": "sepia(.1) saturate(1.05) hue-rotate(-4deg)"},
+    "frio": {"label": "Frío", "ff": "colortemperature=temperature=7600:mix=0.5,eq=contrast=1.04",
              "css": "saturate(.95) hue-rotate(10deg) brightness(1.02)"},
     "cine": {"label": "Cine", "ff": "colorbalance=rs=-0.07:bs=0.09:rh=0.08:gh=0.02:bh=-0.08,"
                                      "eq=contrast=1.08:saturation=1.04:gamma=0.97,vignette=angle=0.45",
@@ -1439,10 +1454,10 @@ def apply_reference(p: dict) -> list[str]:
     cs = [c.get("stats") for c in p["clips"] if c.get("stats")]
     if rs and cs:
         avg = {k: sum(s[k] for s in cs) / len(cs) for k in ("y", "sat", "warm", "contrast")}
-        g["exposure"] = round(max(-1, min(1, (rs["y"] - avg["y"]) / 60)), 2)
-        g["saturation"] = round(max(-1, min(1, (rs["sat"] - avg["sat"]) / max(avg["sat"], 8))), 2)
-        g["temperature"] = round(max(-1, min(1, (rs["warm"] - avg["warm"]) / 14)), 2)
-        g["contrast"] = round(max(-1, min(1, (rs["contrast"] - avg["contrast"]) / 80)), 2)
+        g["exposure"] = round(max(-0.25, min(0.25, 0.5 * (rs["y"] - avg["y"]) / 60)), 2)
+        g["saturation"] = round(max(-0.2, min(0.2, 0.5 * (rs["sat"] - avg["sat"]) / max(avg["sat"], 8))), 2)
+        g["temperature"] = round(max(-0.2, min(0.2, 0.5 * (rs["warm"] - avg["warm"]) / 14)), 2)
+        g["contrast"] = round(max(-0.2, min(0.2, 0.5 * (rs["contrast"] - avg["contrast"]) / 80)), 2)
     done.append(f"color {LOOKS[g['look']]['label'].lower()}")
     if ref.get("tempo") and st["music"].get("file"):
         st["music"]["beatSync"] = True
@@ -1465,9 +1480,10 @@ def match_clips_color(p: dict, progress=lambda f, m="": None) -> int:
     ts = sum(c["stats"]["sat"] for c in clips) / len(clips)
     for c in clips:
         adj = c.setdefault("adjust", {})
-        adj["exposure"] = round(max(-1, min(1, (ty - c["stats"]["y"]) / 60)), 2)
-        adj["temperature"] = round(max(-1, min(1, (tw - c["stats"]["warm"]) / 14)), 2)
-        adj["saturation"] = round(max(-1, min(1, (ts - c["stats"]["sat"]) / max(ts, 8))), 2)
+        # suave: solo acerca la mitad del camino y con topes chicos (antes se pasaba y dañaba los colores)
+        adj["exposure"] = round(max(-0.2, min(0.2, 0.5 * (ty - c["stats"]["y"]) / 60)), 2)
+        adj["temperature"] = round(max(-0.15, min(0.15, 0.5 * (tw - c["stats"]["warm"]) / 14)), 2)
+        adj["saturation"] = round(max(-0.12, min(0.12, 0.5 * (ts - c["stats"]["sat"]) / max(ts, 8))), 2)
     return len(clips)
 
 
@@ -1542,10 +1558,13 @@ def jump_cuts(pl: dict) -> list[float]:
 
 def grade_filters(p: dict, c: dict, sdr_from_hdr: bool) -> str:
     g = p["settings"].get("grade", {})
-    adj = (c or {}).get("adjust", {}) or {}
+    adj = dict((c or {}).get("adjust", {}) or {})
+    for k, lim in (("exposure", 0.2), ("temperature", 0.15), ("saturation", 0.12)):  # proyectos viejos con ajustes exagerados
+        if k in adj:
+            adj[k] = max(-lim, min(lim, float(adj[k])))
     parts = []
     if sdr_from_hdr:
-        parts.append("colorspace=all=bt709:iall=bt2020:fast=1:format=yuv420p,eq=contrast=1.06:saturation=1.12")
+        parts.append(hdr_to_sdr(c or {}))
     look = LOOKS.get(g.get("look", "natural"), LOOKS["natural"])["ff"]
     if look:
         parts.append(look)
@@ -1553,11 +1572,11 @@ def grade_filters(p: dict, c: dict, sdr_from_hdr: bool) -> str:
     co = float(g.get("contrast", 0))
     sa = float(g.get("saturation", 0)) + float(adj.get("saturation", 0))
     if abs(ex) > 0.005 or abs(co) > 0.005 or abs(sa) > 0.005:
-        parts.append(f"eq=brightness={ex * 0.1:.3f}:gamma={1 + ex * 0.22:.3f}:contrast={1 + co * 0.35:.3f}"
-                     f":saturation={max(0, 1 + sa * 0.6):.3f}")
+        parts.append(f"eq=brightness={ex * 0.03:.3f}:gamma={1 + ex * 0.25:.3f}:contrast={1 + co * 0.25:.3f}"
+                     f":saturation={max(0, 1 + sa * 0.5):.3f}")
     te = float(g.get("temperature", 0)) + float(adj.get("temperature", 0))
     if abs(te) > 0.01:
-        parts.append(f"colortemperature=temperature={int(6500 - te * 2400)}:mix=0.9")
+        parts.append(f"colortemperature=temperature={int(6500 - te * 2000)}:mix=0.6")
     ti = float(g.get("tint", 0))
     if abs(ti) > 0.01:
         parts.append(f"colorbalance=gm={-ti * 0.08:.3f}:gs={-ti * 0.05:.3f}")
@@ -1860,6 +1879,8 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
         acmd += ["-i", str(voz_path)]
     if music_path:
         vol = float(mus.get("volume", 0.35))
+        if not has_voice:  # sin voces, la música es el audio principal: va a volumen completo
+            vol = max(vol, 1.0)
         fi, fo = float(mus.get("fadeIn", 1)), float(mus.get("fadeOut", 2))
         mchain = (f"[{mi}:a]aresample=48000,aformat=channel_layouts=stereo,"
                   f"atrim=start={float(mus.get('start', 0)):.3f},asetpts=PTS-STARTPTS,"
@@ -1958,7 +1979,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
         g.append(f"[{nxt}:a]loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={loud['input_i']}:measured_TP={loud['input_tp']}"
                  f":measured_LRA={loud['input_lra']}:measured_thresh={loud['input_thresh']}"
                  f":offset={loud['target_offset']}:linear=true,aresample=48000[a]")
-    elif opts.get("loudnorm", True) and not preview:
+    elif opts.get("loudnorm", True):  # la vista previa también se oye al volumen de redes
         g.append(f"[{nxt}:a]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]")
     else:
         g.append(f"[{nxt}:a]anull[a]")

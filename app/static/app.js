@@ -99,16 +99,19 @@ function computePlan(P) {
   const items = [];
   if (st.intro && st.intro.on) items.push({ kind: "card", card: "intro", segs: [], dur: r30(+st.intro.dur || 2) });
   let clock = items.length ? items[0].dur : 0;
-  for (const it of P.timeline) {
+  for (const [ti, it] of P.timeline.entries()) {
     const c = clipOf(it.clip);
     if (!c || !["listo", "sin voz", "sin transcribir"].includes(c.status) || c.hasVideo === false) continue;
     let segs = itemSegments(P, it);
     if (!segs.length) continue;
+    if (items.length) { const t0 = (it.transition && it.transition.type) || tr.type || "corte"; if (TRANS[t0]) clock -= +((it.transition && it.transition.dur) || tr.dur || 0.4); }
     if (!c.speech) {
       const [a, b] = segs[0];
       let want = it.full ? b - a : Math.min(b - a, pace);
       if (beatSync) {
-        const mt = clock - (+mus.start || 0);
+        const nx = P.timeline[ti + 1], t1 = (nx && nx.transition && nx.transition.type) || tr.type || "corte";
+        const half = nx && TRANS[t1] ? +((nx.transition && nx.transition.dur) || tr.dur || 0.4) / 2 : 0;
+        const mt = clock - half - (+mus.start || 0);
         const cand = beats.map((x) => x - mt).filter((x) => x >= 0.6 && x <= b - a);
         if (cand.length) want = cand.reduce((p, x) => (Math.abs(x - want) < Math.abs(p - want) ? x : p));
       }
@@ -117,7 +120,7 @@ function computePlan(P) {
     segs = snap(segs);
     if (!segs.length) continue;
     const dur = segs.reduce((n, [a, b]) => n + b - a, 0);
-    items.push({ kind: "clip", clip: c.id, segs, dur, speech: !!c.speech, trans: it.transition });
+    items.push({ kind: "clip", clip: c.id, segs, dur, speech: !!c.speech, trans: it.transition, ti });
     clock += dur;
   }
   if (st.outro && st.outro.on) items.push({ kind: "card", card: "outro", segs: [], dur: r30(+st.outro.dur || 2.5) });
@@ -133,7 +136,9 @@ function computePlan(P) {
         for (const [a, b] of itm.segs) { const take = Math.min(b - a, left); if (take > 0.05) segs.push([a, a + take]); left -= take; if (left <= 0) break; }
         itm = { ...itm, segs, dur: segs.reduce((n, [a, b]) => n + b - a, 0) };
       }
-      budget -= itm.dur; keep.push(itm);
+      budget -= itm.dur;
+      if (keep.some((k) => k.kind === "clip")) { const t0 = (itm.trans && itm.trans.type) || tr.type || "corte"; if (TRANS[t0]) budget += Math.min(+((itm.trans && itm.trans.dur) || tr.dur || 0.4), itm.dur * 0.4); }
+      keep.push(itm);
     }
     items.length = 0; items.push(...keep);
   }
@@ -1291,9 +1296,11 @@ function renderEstilo() {
   }).join("");
   const j = S.selJunction, itm = j != null && S.plan.items[j];
   const tr = s.transition;
-  const tl = itm && itm.kind === "clip" ? P.timeline.find((t) => t.clip === itm.clip) : null;
+  const tl = itm && itm.kind === "clip" ? P.timeline[itm.ti] : null;
   const active = itm ? (tl && tl.transition && tl.transition.type) || null : tr.type;
-  const transBtns = Object.keys(TRANS_LABEL).map((k) => `<button data-t="${k}" class="${active === k ? "on" : ""}">${TRANS_LABEL[k]}</button>`).join("");
+  const mixed = !itm && P.timeline.some((t) => t.transition);
+  const transBtns = (itm ? "" : `<button data-t="variado" class="${mixed ? "on" : ""}" title="Una distinta en cada unión, al ritmo de la música">Variadas ♪</button>`)
+    + Object.keys(TRANS_LABEL).map((k) => `<button data-t="${k}" class="${!mixed && active === k ? "on" : ""}">${TRANS_LABEL[k]}</button>`).join("");
   const itmName = itm ? (itm.kind === "clip" ? (clipOf(itm.clip) || {}).name : itm.card === "intro" ? "la intro" : "el cierre") : "";
   box.innerHTML = `<div class="sec"><h3>Transiciones ${itm ? `<button class="btn small ghost" id="jClose">Ver la general</button>` : ""}</h3>
       <p class="fine">${itm ? `Solo la unión antes de «${esc(itmName)}» (ahora: ${TRANS_LABEL[itm.ttype]}). ${tl && tl.transition ? '<a href="#" id="jReset">Usar la general</a>' : ""}` : "Se aplica entre clips. Los saltos dentro de un mismo clip (silencios quitados) siempre son cortes. Para cambiar una sola unión, toca su ◆ en la línea de tiempo."}</p>
@@ -1317,7 +1324,12 @@ function renderEstilo() {
   $("#transGrid").onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
     pushHistory();
-    if (itm && tl) tl.transition = { type: b.dataset.t }; else tr.type = b.dataset.t;
+    if (b.dataset.t === "variado") {
+      flushSave().then(() => api("POST", `/api/projects/${P.id}/vary`, {})).then((np) => { S.P = np; render(); toast("Transiciones variadas al ritmo de la música"); }).catch((er) => toast(er.message, 4000));
+      return;
+    }
+    if (itm && tl) tl.transition = { type: b.dataset.t };
+    else { tr.type = b.dataset.t; P.timeline.forEach((t) => delete t.transition); } // la general vale para todas
     changed();
   };
   bindToggle("subsOn", (v) => (s.subtitles = v));

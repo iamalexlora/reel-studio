@@ -890,18 +890,26 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
         items.append({"kind": "card", "card": "intro", "segs": [],
                       "dur": round(float(st["intro"].get("dur", 2.0)) * fps) / fps})
     clock = items[0]["dur"] if items else 0.0
-    for it in p.get("timeline", []):
+    for ti, it in enumerate(p.get("timeline", [])):
         c = clip_by_id(p, it["clip"])
         if not c or c.get("status") not in ("listo", "sin voz", "sin transcribir") or not c.get("hasVideo", True):
             continue
         segs = item_segments(p, it)
         if not segs:
             continue
+        if items:  # la transición solapa: el elemento empieza antes (así los cortes caen en el tiempo)
+            t0 = (it.get("transition") or {}).get("type") or tr.get("type", "corte")
+            if TRANSITIONS.get(t0):
+                clock -= float((it.get("transition") or {}).get("dur") or tr.get("dur", 0.4))
         if not c.get("speech"):
             a, b = segs[0]
             want = b - a if it.get("full") else min(b - a, pace)
             if beat_sync:
-                mt = clock - float(mus.get("start", 0))
+                # que el centro de la transición siguiente caiga justo en el tiempo de la música
+                nx = p["timeline"][ti + 1] if ti + 1 < len(p["timeline"]) else {}
+                t1 = (nx.get("transition") or {}).get("type") or tr.get("type", "corte")
+                half = float((nx.get("transition") or {}).get("dur") or tr.get("dur", 0.4)) / 2 if nx and TRANSITIONS.get(t1) else 0
+                mt = clock - half - float(mus.get("start", 0))
                 cand = [x - mt for x in beats if 0.6 <= x - mt <= b - a]
                 if cand:
                     want = min(cand, key=lambda x: abs(x - want))
@@ -911,7 +919,7 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
             continue
         dur = round(sum(b - a for a, b in segs), 4)
         items.append({"kind": "clip", "clip": c["id"], "segs": segs, "dur": dur,
-                      "speech": bool(c.get("speech")), "trans": it.get("transition")})
+                      "speech": bool(c.get("speech")), "trans": it.get("transition"), "ti": ti})
         clock += dur
     if st.get("outro", {}).get("on"):
         items.append({"kind": "card", "card": "outro", "segs": [],
@@ -943,6 +951,10 @@ def plan(p: dict, fps: int = FPS_DEFAULT) -> dict:
                         break
                 itm = dict(itm, segs=segs, dur=round(sum(b - a for a, b in segs), 4))
             budget -= itm["dur"]
+            if any(k["kind"] == "clip" for k in keep):  # la transición solapa: ese tramo no suma duración
+                t0 = (itm.get("trans") or {}).get("type") or tr.get("type", "corte")
+                if TRANSITIONS.get(t0):
+                    budget += min(float((itm.get("trans") or {}).get("dur") or tr.get("dur", 0.4)), itm["dur"] * 0.4)
             keep.append(itm)
         items = keep
     start = 0.0
@@ -1465,6 +1477,63 @@ def apply_reference(p: dict) -> list[str]:
     return done
 
 
+TRANS_POOLS = {  # transiciones por estilo: [fuertes (inicio de frase musical), suaves (resto)]
+    "dinamico": (["zoom", "barrido", "blanco", "difuminar"], ["corte", "corte", "zoom", "corte"]),
+    "viral": (["zoom", "blanco", "barrido"], ["corte"]),
+    "energetico": (["barrido", "zoom", "blanco", "difuminar"], ["corte", "barrido", "corte"]),
+    "elegante": (["disolver", "difuminar", "negro"], ["disolver", "corte", "disolver"]),
+    "cinematico": (["negro", "difuminar", "disolver"], ["disolver", "corte"]),
+    "corporativo": (["barrido", "disolver", "zoom"], ["disolver", "corte"]),
+    "calido": (["difuminar", "disolver", "zoom"], ["disolver", "corte"]),
+    "vintage": (["difuminar", "negro", "blanco"], ["disolver", "difuminar"]),
+    "bn": (["negro", "blanco", "difuminar"], ["disolver", "corte"]),
+    "natural": (["disolver", "difuminar", "barrido"], ["corte", "corte", "disolver"]),
+}
+
+
+def vary_transitions(p: dict, style: str, base_dur: float) -> int:
+    """Pone una transición distinta en cada unión según el estilo y la música:
+    las fuertes caen al inicio de cada frase musical (cada 8 tiempos), las medianas cada compás."""
+    strong, soft = TRANS_POOLS.get(style, TRANS_POOLS["dinamico"])
+    mus = p["settings"].get("music") or {}
+    beats = mus.get("beats") or [] if mus.get("file") else []
+    tempo = float(mus.get("tempo") or 0) if beats else 0
+    dur = base_dur
+    if tempo:  # que dure medio tiempo o un tiempo de la canción
+        beat = 60 / tempo
+        dur = beat / 2 if base_dur < beat * 0.75 else beat
+        dur = round(min(0.7, max(0.2, dur)), 3)
+    tl = p.get("timeline", [])
+    for it in tl:
+        it.pop("transition", None)
+    pl = plan(p)
+    clips = [i for i in pl["items"] if i["kind"] == "clip"]
+    ms = float(mus.get("start", 0))
+    k_s = k_w = 0
+    n = 0
+    for idx, itm in enumerate(clips[1:], 1):
+        if itm.get("speech") and clips[idx - 1].get("speech") and clips[idx - 1]["clip"] == itm["clip"]:
+            continue
+        if beats:
+            t = itm["start"] + ms
+            bi = min(range(len(beats)), key=lambda b: abs(beats[b] - t))
+            level = 2 if bi % 8 == 0 else (1 if bi % 4 == 0 else 0)
+        else:
+            level = 2 if idx % 4 == 0 else (1 if idx % 2 == 0 else 0)
+        if level == 2:
+            ty = strong[k_s % len(strong)]; k_s += 1
+        elif level == 1:
+            ty = (strong[(k_s + 1) % len(strong)] if len(soft) == 1 else soft[(k_w + 1) % len(soft)]); k_w += 1
+        else:
+            ty = soft[k_w % len(soft)]; k_w += 1
+        ti = itm.get("ti")
+        if ti is None or ti >= len(tl):
+            continue
+        tl[ti]["transition"] = {"type": ty, "dur": dur if ty != "corte" else 0.3}
+        n += 1
+    return n
+
+
 def match_clips_color(p: dict, progress=lambda f, m="": None) -> int:
     """Iguala brillo, saturación y temperatura de los clips hacia el promedio."""
     clips = [c for c in p["clips"] if c.get("status") in ("listo", "sin voz", "sin transcribir") and c.get("hasVideo", True)]
@@ -1604,6 +1673,62 @@ QUALITY = {
     "borrador": ("ultrafast", 30, "128k", 0.05),
     "vista": ("veryfast", 19, "160k", 0.12),
 }
+
+
+CHUNK = 12
+
+
+def xfade_chain(g: list, seq) -> str:
+    """Une [p0]..[pn] con sus transiciones (xfade) o cortes; devuelve la etiqueta final."""
+    cur, acc = "[p0]", seq[0][1]
+    for j in range(1, len(seq)):
+        _, d, td, ty = seq[j]
+        lab = f"[q{j}]"
+        if td > 0:
+            g.append(f"{cur}[p{j}]xfade=transition={TRANSITIONS[ty]}:duration={td:.4f}:offset={acc - td:.4f}{lab}")
+        else:
+            g.append(f"{cur}[p{j}]concat=n=2:v=1:a=0{lab}")
+        acc += d - td
+        cur = lab
+    return cur
+
+
+def assemble_seq(seq, work: Path, fps: int, work_fmt: str, hdr: bool, level: int = 0) -> Path:
+    """Une una secuencia larga en bloques de CHUNK y luego une los bloques (con la transición de su borde)."""
+    blocks = []
+    for b, i0 in enumerate(range(0, len(seq), CHUNK)):
+        part = seq[i0:i0 + CHUNK]
+        out = work / f"seq{level}_{b}.mp4"
+        g, cmd = [], []
+        for i, (f, *_r) in enumerate(part):
+            cmd += ["-i", f]
+            g.append(f"[{i}:v]fps={fps},settb=AVTB,setpts=PTS-STARTPTS,format={work_fmt}[p{i}]")
+        first = (part[0][0], part[0][1], 0, None)
+        cur = xfade_chain(g, [first] + part[1:])
+        g.append(f"{cur}format={work_fmt}[v]")
+        gf = work / f"seq{level}_{b}.txt"
+        gf.write_text(";\n".join(g), encoding="utf-8")
+        dur = sum(x[1] for x in part) - sum(x[2] for x in part[1:])
+        run_ffmpeg(cmd + graph_args(gf) + ["-map", "[v]", "-an"] + _enc_piece(hdr, False)
+                   + ["-r", str(fps), "-t", f"{dur:.4f}", str(out)])
+        blocks.append((str(out), dur, part[0][2] if i0 else 0, part[0][3]))
+    if len(blocks) > CHUNK:
+        return assemble_seq(blocks, work, fps, work_fmt, hdr, level + 1)
+    if len(blocks) == 1:
+        return Path(blocks[0][0])
+    out = work / f"seq{level}_all.mp4"
+    g, cmd = [], []
+    for i, (f, *_r) in enumerate(blocks):
+        cmd += ["-i", f]
+        g.append(f"[{i}:v]fps={fps},settb=AVTB,setpts=PTS-STARTPTS,format={work_fmt}[p{i}]")
+    cur = xfade_chain(g, blocks)
+    g.append(f"{cur}format={work_fmt}[v]")
+    gf = work / f"seq{level}_all.txt"
+    gf.write_text(";\n".join(g), encoding="utf-8")
+    dur = sum(x[1] for x in blocks) - sum(x[2] for x in blocks[1:])
+    run_ffmpeg(cmd + graph_args(gf) + ["-map", "[v]", "-an"] + _enc_piece(hdr, False)
+               + ["-r", str(fps), "-t", f"{dur:.4f}", str(out)])
+    return out
 
 
 def pick_fps(p: dict, want) -> int:
@@ -1859,7 +1984,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
         else:
             ag.append(f"{cur}[{j}:a]concat=n=2:v=0:a=1{lab}")
         cur = lab
-    has_voice = any(itm.get("speech") for itm in items)
+    has_voice = any(itm.get("speech") and not (clip_by_id(p, itm.get("clip")) or {}).get("muted") for itm in items)
     voz = st.get("voice") or {}
     voz_path = d / voz["file"] if voz.get("file") else None
     if voz_path and voz_path.exists():
@@ -1923,21 +2048,16 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     else:
         work_fmt, afmt, ofmt = "yuv420p", "yuva420p", "yuv420"
     cmd, g = [], []
-    for i, f in enumerate(piece_files):
-        cmd += ["-i", str(f)]
+    seq = [(str(f), itm["dur"], itm["tdur"], itm.get("ttype")) for f, itm in zip(piece_files, items)]
+    if len(seq) > CHUNK:
+        # videos largos: se arma por bloques (si no, ffmpeg abre todo a la vez y se queda sin memoria)
+        progress(0.63, "Uniendo las tomas…")
+        seq = [(str(assemble_seq(seq, work, fps, work_fmt, work_fmt != "yuv420p")), sum(x[1] for x in seq) - sum(x[2] for x in seq[1:]), 0, None)]
+    for i, (f, *_r) in enumerate(seq):
+        cmd += ["-i", f]
         g.append(f"[{i}:v]fps={fps},settb=AVTB,setpts=PTS-STARTPTS,format={work_fmt}[p{i}]")
-    cur, acc = "[p0]", items[0]["dur"]
-    for j in range(1, len(items)):
-        td = items[j]["tdur"]
-        lab = f"[q{j}]"
-        if td > 0:
-            g.append(f"{cur}[p{j}]xfade=transition={TRANSITIONS[items[j]['ttype']]}:duration={td:.4f}"
-                     f":offset={acc - td:.4f}{lab}")
-        else:
-            g.append(f"{cur}[p{j}]concat=n=2:v=1:a=0{lab}")
-        acc += items[j]["dur"] - td
-        cur = lab
-    nxt = len(piece_files)
+    cur = xfade_chain(g, seq)
+    nxt = len(seq)
     for k, (f, at, bd) in enumerate(broll_files):
         cmd += ["-i", str(f)]
         g.append(f"[{nxt}:v]fps={fps},format={work_fmt},setpts=PTS-STARTPTS+{at:.4f}/TB[b{k}]")

@@ -1,5 +1,17 @@
 [
  {
+  "v": "3.1",
+  "date": "7 nov 2026",
+  "title": "Duración exacta y transiciones al ritmo",
+  "items": [
+   "Si eliges 3 minutos, el video dura 3 minutos: las tomas se repiten tomando otras partes de tus videos hasta llenarlo.",
+   "Sin duración elegida y con música, el video dura lo que la canción (hasta 3 minutos).",
+   "La música ya no se pierde si le das a «Hacer mi video» mientras todavía se está analizando.",
+   "Transiciones variadas según el estilo: las fuertes caen al inicio de cada frase de la canción y los cortes, en el tiempo.",
+   "Nuevo botón «Variadas ♪» en Transiciones para volver a repartirlas al ritmo."
+  ]
+ },
+ {
   "v": "3.0",
   "date": "7 nov 2026",
   "title": "Música que se oye y colores naturales",

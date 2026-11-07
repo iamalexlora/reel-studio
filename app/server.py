@@ -309,6 +309,9 @@ def make_video(pid: str, o: dict) -> dict:
             if (p["settings"].get("voice") or {}).get("status") == "transcribiendo":
                 busy = busy or [{"voz": 1}]
             ref = p.get("reference") or {}
+            if any(j0["kind"] in ("music", "voice") and j0["project"] == pid and j0["status"] == "running"
+                   for j0 in JOBS.values()):
+                busy = busy or [{"musica": 1}]
             if ref.get("file") and not ref.get("analysis") and any(
                     j0["kind"] == "reference" and j0["project"] == pid and j0["status"] == "running" for j0 in JOBS.values()):
                 busy = busy or [ref]
@@ -335,6 +338,7 @@ def make_video(pid: str, o: dict) -> dict:
             st["subtitles"] = bool(o.get("subtitles", True))
             st["removeSilences"] = bool(o.get("clean", True))
             st["transition"] = {"type": vibe["trans"], "dur": vibe["tdur"]}
+            st["vibe"] = o.get("style") if o.get("style") in VIBES else "dinamico"
             st["grade"]["look"] = vibe["look"]
             if o.get("brand") is not None:
                 st["brand"] = o.get("brand") or ""
@@ -358,8 +362,33 @@ def make_video(pid: str, o: dict) -> dict:
                     tot += seg; k += 1
                 q["timeline"], q["broll"] = tl, []
                 msg = f"Armé {len(tl)} tomas sobre tu narración de {vz['duration']:.0f} s."
-            for itm in q["timeline"][1:]:
-                itm.pop("trans", None)
+            else:
+                # montaje (sin nadie hablando): se llena hasta la duración elegida o lo que dura la música
+                ready = [c for c in q["clips"] if c.get("hasVideo", True) and c.get("status") in READY]
+                talking = any(c.get("speech") and not c.get("muted") for c in ready)
+                mus = st.get("music") or {}
+                target = float(st.get("maxDur") or 0)
+                if not target and mus.get("file") and mus.get("duration"):
+                    target = min(180.0, float(mus["duration"]))
+                if ready and not talking and target > 0:
+                    pace = vibe["pace"]
+                    step = max(0.6, pace - (0.3 if vibe["trans"] != "corte" else 0.1))
+                    tl, tot, k = [], 0.0, 0
+                    while tot < target * 1.35 + 2 and k < 800:
+                        c = ready[k % len(ready)]
+                        rnd = k // len(ready)
+                        seg = min(c["duration"], max(2.0, pace * 1.6))
+                        room = max(0.01, c["duration"] - seg)
+                        a0 = round(((rnd * 0.618) % 1.0) * room, 2)  # cada vuelta, otra parte del video
+                        tl.append({"clip": c["id"], "in": a0, "out": round(min(c["duration"], a0 + seg), 2)})
+                        tot += min(seg, step); k += 1
+                    q["timeline"], q["broll"] = tl, []
+                    while len(q["timeline"]) > 2 and E.plan(q)["total"] > target + pace:  # sobra: se quitan las últimas
+                        q["timeline"].pop()
+                    msg = f"Armé {len(q['timeline'])} tomas para {int(target // 60)}:{int(target % 60):02d}."
+            if (st.get("music") or {}).get("file") and (st.get("music") or {}).get("beats"):
+                st["music"]["beatSync"] = True
+            E.vary_transitions(q, o.get("style") or "dinamico", vibe["tdur"])
             E.add_log(q, "auto", f"Hacer mi video ({vibe['label']}): {msg}")
         prog(0.08, "Limpiando y armando…")
         E.update(pid, setup)
@@ -705,6 +734,13 @@ class H(BaseHTTPRequestHandler):
             dest = d / f"referencia{ext}"
             receive(self, dest)
             return self.send_json(start_reference(pid, dest, Path(fn).stem))
+        if action == "vary":
+            def vf(p):
+                st = p["settings"]
+                if st.get("music", {}).get("file") and st["music"].get("beats"):
+                    st["music"]["beatSync"] = True
+                E.vary_transitions(p, st.get("vibe") or "dinamico", float(st["transition"].get("dur", 0.4)))
+            return self.send_json(E.update(pid, vf))
         if action == "sort":
             mode = self.body_json().get("mode", "num-asc")
             return self.send_json(E.update(pid, lambda p: E.sort_clips(p, mode)))

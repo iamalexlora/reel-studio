@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.9",
+  "date": "7 nov 2026",
+  "title": "Tus videos en orden",
+  "items": [
+   "Los videos se ordenan solos por su número (IMG_1522, IMG_1523…) al subirlos.",
+   "Puedes cambiar el orden: por número de menor a mayor o al revés, o por nombre de la A a la Z.",
+   "Borrar en la línea de tiempo y botones de deshacer y rehacer.",
+   "Narración, música de base y opción de quitar el audio de los videos."
+  ]
+ },
+ {
   "v": "2.8",
   "date": "6 nov 2026",
   "title": "Duración a tu medida",

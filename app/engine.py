@@ -208,6 +208,7 @@ DEFAULT_SETTINGS = {
     "brand": "",
     "maxDur": 0,
     "autoTranscribe": False,
+    "clipOrder": "num-asc",
     "logo": {"on": False, "pos": "arriba-derecha", "size": 0.14, "opacity": 0.9},
     "intro": {"on": False, "text": "", "dur": 2.0},
     "outro": {"on": False, "text": "", "dur": 2.5},
@@ -433,6 +434,8 @@ def new_clip(pid: str, filename: str) -> tuple[dict, Path]:
         c = {"id": f"c{n}", "file": f"clips/c{n}{ext}", "name": Path(filename).stem[:60] or f"Clip {n}",
              "status": "subiendo"}
         p["clips"].append(c)
+        if p["settings"].get("clipOrder", "num-asc") in ("num-asc", "num-desc", "az", "za"):
+            sort_clips(p, p["settings"].get("clipOrder", "num-asc"))
         holder["c"] = c
     update(pid, fn)
     (project_dir(pid) / "clips").mkdir(exist_ok=True)
@@ -452,6 +455,28 @@ def remove_clip(p: dict, cid: str):
         (project_dir(p["id"]) / c["file"]).unlink()
     except Exception:
         pass
+
+
+def _natural(name: str):
+    """IMG_1522 < IMG_1523 < IMG_10000: compara los números como números, no como texto."""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", name or "")]
+
+
+def sort_clips(p: dict, mode: str = "num-asc") -> None:
+    """Ordena los videos subidos (y la línea de tiempo) por número o por letra."""
+    if mode not in ("num-asc", "num-desc", "az", "za"):
+        return
+    if mode.startswith("num"):
+        nums = lambda c: [x for x in _natural(c.get("name", "")) if isinstance(x, int)]  # noqa: E731
+        con = sorted([c for c in p["clips"] if nums(c)], key=lambda c: (nums(c), _natural(c.get("name", ""))),
+                     reverse=(mode == "num-desc"))
+        p["clips"] = con + [c for c in p["clips"] if not nums(c)]  # los que no tienen número van al final
+    else:
+        p["clips"].sort(key=lambda c: (c.get("name", "") or "").lower(), reverse=(mode == "za"))
+    order = {c["id"]: i for i, c in enumerate(p["clips"])}
+    p["timeline"].sort(key=lambda t: order.get(t.get("clip"), 999))
+    p["settings"]["clipOrder"] = mode
+    renumber(p)
 
 
 def renumber(p: dict):

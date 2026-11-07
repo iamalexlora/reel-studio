@@ -705,6 +705,9 @@ class H(BaseHTTPRequestHandler):
             dest = d / f"referencia{ext}"
             receive(self, dest)
             return self.send_json(start_reference(pid, dest, Path(fn).stem))
+        if action == "sort":
+            mode = self.body_json().get("mode", "num-asc")
+            return self.send_json(E.update(pid, lambda p: E.sort_clips(p, mode)))
         if action == "link":
             b = self.body_json()
             url = (b.get("url") or "").strip()

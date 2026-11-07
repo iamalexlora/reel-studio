@@ -807,3 +807,4 @@ input, textarea, select, [contenteditable="true"], .textin { -webkit-user-select
 .hbtn:hover:not(:disabled) { background: rgba(127,127,127,.2); }
 .hbtn:disabled { opacity: .3; cursor: default; }
 @container (max-width: 820px) { .histbtns { display: flex; } #undoBtn { display: grid; } }
+.gorder { display: flex; align-items: center; gap: 8px; } .gorder[hidden] { display: none; }

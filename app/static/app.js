@@ -2017,6 +2017,8 @@ function renderGuide() {
   if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
   if (P && $("#gMax") && !$("#gMax").querySelector("input")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
   if (P) $("#gAutoT").checked = !!P.settings.autoTranscribe;
+  $(".gorder").hidden = !(P && P.clips.length > 1);
+  if (P) $$("#gOrder button").forEach((b) => b.classList.toggle("on", b.dataset.v === (P.settings.clipOrder || "num-asc")));
   if (P) {
     const va = S.make.videoAudio !== false;
     $$("#gVA button").forEach((b) => b.classList.toggle("on", (b.dataset.v === "1") === va));
@@ -2062,6 +2064,12 @@ $("#gMusicFile").addEventListener("change", async (e) => { const f = e.target.fi
 document.addEventListener("click", async (e) => {
   const v = e.target.closest("#gVoiceDel"), m = e.target.closest("#gMusicDel"); if (!v && !m) return;
   e.preventDefault(); await api("DELETE", `/api/projects/${S.P.id}/${v ? "voice" : "music"}`); await openProject(S.P.id);
+});
+$("#gOrder").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b || !S.P) return;
+  await flushSave(); pushHistory();
+  try { S.P = await api("POST", `/api/projects/${S.P.id}/sort`, { mode: b.dataset.v }); } catch (er) { return toast(er.message, 4000); }
+  render(); toast("Videos ordenados " + b.title.toLowerCase().replace("por ", "por "));
 });
 $("#gAutoT").addEventListener("change", (e) => { if (S.P) { S.P.settings.autoTranscribe = e.target.checked; scheduleSave(); } });
 async function transcribeNow(cid) {

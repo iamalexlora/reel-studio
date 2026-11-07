@@ -92,6 +92,11 @@
               <section class="step"><i>1</i><h3>Tus videos</h3><p class="fine">Tomas hablando, de dron o de cámara. Puedes elegir varios.</p>
                 <div class="dz-btns"><label class="btn primary"><input type="file" id="fileInput" accept="video/*,.mov,.mp4,.m4v,.mkv,.mts" multiple hidden>Elegir videos</label>
                   <button class="btn" type="button" data-link="clip">Pegar enlace</button></div>
+                <div class="gorder"><span class="fine">Ordenar:</span><div class="seg tiny" id="gOrder">
+                  <button type="button" data-v="num-asc" title="Por número, de menor a mayor (IMG_1522, IMG_1523…)">1 → 9</button>
+                  <button type="button" data-v="num-desc" title="Por número, de mayor a menor">9 → 1</button>
+                  <button type="button" data-v="az" title="Por nombre, de la A a la Z">A → Z</button>
+                  <button type="button" data-v="za" title="Por nombre, de la Z a la A">Z → A</button></div></div>
                 <div class="gclips" id="gClips"></div>
                 <div class="gaudio">
                   <div class="ga"><b>Audio de los videos</b><div class="seg" id="gVA"><button type="button" data-v="1" class="on">Usarlo</button><button type="button" data-v="0">Quitarlo</button></div>

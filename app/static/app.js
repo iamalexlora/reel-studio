@@ -2030,7 +2030,7 @@ function renderGuide() {
   }).join("") : "";
   const ref = P && P.reference;
   $("#gRefName").textContent = ref && ref.file ? `Referencia: ${ref.name}${ref.analysis ? " ✓" : " (analizando…)"}` : "";
-  if (P && ref && ref.prompt && !$("#gPrompt").value) $("#gPrompt").value = ref.prompt;
+  if (P && ref && ref.prompt && !$("#gPrompt").value) { $("#gPrompt").value = ref.prompt; growTA($("#gPrompt")); }
   if (P && $("#gMax") && !$("#gMax").querySelector("input")) $("#gMax").outerHTML = maxDurSeg("gMax", P.settings.maxDur);
   if (P) $("#gAutoT").checked = !!P.settings.autoTranscribe;
   $(".gorder").hidden = !(P && P.clips.length > 1);
@@ -2064,7 +2064,7 @@ $("#gRefFile").addEventListener("change", async (e) => {
 $("#gChips").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   const t = $("#gPrompt"), add = b.textContent.toLowerCase();
-  t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus();
+  t.value = t.value.trim() ? t.value.trim().replace(/[.,]?$/, ", ") + add : b.textContent; t.focus(); growTA(t);
 });
 $("#gVA").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.make.videoAudio = b.dataset.v === "1"; if (S.make.videoAudio) $("#gSubs").checked = true; renderGuide(); });
 async function addVoice(file) {
@@ -2240,3 +2240,7 @@ setTimeout(hideSplash, 4500);
   requestAnimationFrame(tick);
   poll(); checkUpdate();
 })();
+
+/* el cuadro del pedido crece mientras escribes (sin límite de texto) */
+function growTA(t) { t.style.height = "auto"; t.style.height = Math.max(96, t.scrollHeight + 2) + "px"; }
+document.addEventListener("input", (e) => { if (e.target.matches && e.target.matches("textarea.autogrow, #refPrompt")) growTA(e.target); });

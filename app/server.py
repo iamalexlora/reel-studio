@@ -844,7 +844,7 @@ class H(BaseHTTPRequestHandler):
                 return self.send_json({"error": "Escribe el pedido."}, 400)
 
             def fn(p):
-                p["requests"].append({"id": uuid.uuid4().hex[:6], "text": text[:2000], "status": "pendiente",
+                p["requests"].append({"id": uuid.uuid4().hex[:6], "text": text, "status": "pendiente",
                                       "t": time.time(), "note": ""})
             return self.send_json(E.update(pid, fn))
         if action == "reveal":

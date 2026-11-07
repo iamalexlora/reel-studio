@@ -195,17 +195,17 @@ def parse(text: str) -> dict:
 
     # --- título y cierre (texto entre comillas tiene prioridad)
     def quoted(after_rx):
-        m0 = re.search(after_rx + r"[^\"“”«»']{0,25}[\"“«']([^\"”»']{2,80})[\"”»']", raw, re.I)
+        m0 = re.search(after_rx + r"[^\"“”«»']{0,25}[\"“«']([^\"”»']{2,300})[\"”»']", raw, re.I)
         return m0.groups()[-1].strip() if m0 else None
     title = quoted(r"(t[ií]tulo|empie[cz]\w*|inicio|al principio|portada)")
     if not title:
-        m = re.search(r"t[ií]tulo\s*:\s*([^.\n,;]{2,80})", raw, re.I)
+        m = re.search(r"t[ií]tulo\s*:\s*([^.\n,;]{2,300})", raw, re.I)
         title = m.group(1).strip() if m else None
     if title:
         mk["title"] = title; say(f"título «{title}»")
     cta = quoted(r"(cierre|cierra|final|termina|al final|despedida|llamada)")
     if not cta:
-        m = re.search(r"(?:cierre|final)\s*:\s*([^.\n;]{2,80})", raw, re.I)
+        m = re.search(r"(?:cierre|final)\s*:\s*([^.\n;]{2,300})", raw, re.I)
         cta = m.group(1).strip() if m else None
     if not cta:
         if re.search(r"(invit\w*|pide\w*|pedir) (a )?(seguirme|que me sigan|seguir)|sigueme|siganme", t):

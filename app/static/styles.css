@@ -810,3 +810,6 @@ input, textarea, select, [contenteditable="true"], .textin { -webkit-user-select
 .gorder { display: flex; align-items: center; gap: 8px; } .gorder[hidden] { display: none; }
 .gorder .seg { width: auto; flex: none; display: inline-flex; }
 .gorder .seg button { white-space: nowrap; flex: none; padding: 6px 12px; font-size: 12.5px; line-height: 1; min-width: 58px; }
+
+/* pedido sin límite: el cuadro crece con el texto */
+textarea.autogrow, #refPrompt { resize: vertical; min-height: 96px; max-height: none; overflow-y: hidden; field-sizing: content; }

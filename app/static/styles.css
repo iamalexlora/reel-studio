@@ -813,3 +813,8 @@ input, textarea, select, [contenteditable="true"], .textin { -webkit-user-select
 
 /* pedido sin límite: el cuadro crece con el texto */
 textarea.autogrow, #refPrompt { resize: vertical; min-height: 96px; max-height: none; overflow-y: hidden; field-sizing: content; }
+
+/* borrar pedido */
+.req { position: relative; padding-right: 34px; }
+.req-del { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--field); color: var(--muted, #888); font-size: 15px; line-height: 22px; padding: 0; cursor: pointer; transition: background .15s, color .15s; }
+.req-del:hover { background: #ff3b30; color: #fff; }

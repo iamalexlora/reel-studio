@@ -1489,12 +1489,16 @@ function renderRef() {
 /* ---------------------------------------------------------------- pestaña Pedidos */
 function renderPedidos() {
   const P = S.P, box = $("#t-pedidos");
-  const list = (P.requests || []).slice().reverse().map((r) => `<div class="req ${r.status === "hecho" ? "done" : ""}"><span class="st">${r.status === "hecho" ? "Hecho" : "Pendiente"}</span> · <span class="fine" style="margin:0">${new Date(r.t * 1000).toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+  const list = (P.requests || []).slice().reverse().map((r) => `<div class="req ${r.status === "hecho" ? "done" : ""}"><button class="req-del" data-del="${r.id}" title="Borrar pedido" aria-label="Borrar pedido">×</button><span class="st">${r.status === "hecho" ? "Hecho" : "Pendiente"}</span> · <span class="fine" style="margin:0">${new Date(r.t * 1000).toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
     <div>${esc(r.text)}</div>${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}</div>`).join("");
   box.innerHTML = `<div class="tip">Escribe lo que quieres cambiar, por ejemplo «ritmo más rápido», «subtítulos amarillos arriba», «colores cálidos» o «que dure 1 minuto». Se aplica al instante. Lo que no reconozca queda pendiente para revisarlo con Claude en el chat.</div>
     <textarea id="reqText" placeholder="Ej.: quita la parte donde me equivoco al inicio, pon más tomas de dron entre el segundo 10 y 20, y que el color se parezca a la referencia"></textarea>
     <button class="btn primary" id="reqGo" style="margin-top:8px">Guardar pedido</button>
     <div class="card-list" style="margin-top:14px">${list}</div>`;
+  box.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => {
+    P.requests = (P.requests || []).filter((r) => r.id !== b.dataset.del);
+    scheduleSave(); renderPedidos(); toast("Pedido borrado");
+  }));
   $("#reqGo").onclick = async () => {
     const t = $("#reqText").value.trim(); if (!t) return;
     await flushSave(); S.P = await api("POST", `/api/projects/${P.id}/requests`, { text: t }); render();

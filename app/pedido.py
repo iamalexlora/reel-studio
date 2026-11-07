@@ -250,3 +250,47 @@ def apply(q: dict, pr: dict, vibe_pace: float):
         st["music"]["userVol"] = True
     if m.get("beatSync"):
         st["music"]["beatSync"] = True
+
+
+def apply_now(p: dict, text: str) -> list:
+    """Pedido escrito desde el editor (pestaña Pedidos): aplica en el acto lo que entiende.
+    Devuelve lo entendido; vacío si no reconoció nada."""
+    import engine as E
+    pr = parse(text)
+    if not pr["understood"]:
+        return []
+    st, mk = p["settings"], pr["make"]
+    if mk.get("maxDur") is not None:
+        st["maxDur"] = int(mk["maxDur"])
+    if mk.get("format") in E.FORMATS:
+        st["format"] = mk["format"]
+    if "subtitles" in mk:
+        st["subtitles"] = bool(mk["subtitles"])
+    if "videoAudio" in mk:
+        for c in p["clips"]:
+            c["muted"] = not mk["videoAudio"]
+    if "clean" in mk:
+        st["removeSilences"] = bool(mk["clean"])
+    if mk.get("anims") is False:
+        p["anims"] = []
+    for kind, key in (("titulo", "title"), ("llamada", "cta")):
+        if mk.get(key):
+            for a in p.get("anims", []):
+                if a.get("kind") == kind:
+                    a["text"] = mk[key]
+    if mk.get("style"):
+        st["vibe"] = mk["style"]
+    if pr["order"]:
+        st["clipOrder"] = pr["order"]
+        E.sort_clips(p, pr["order"])
+    apply(p, pr, float(st.get("pace", 2.5)))
+    if pr["transition"] == "variado":
+        mus = st.get("music") or {}
+        if mus.get("file") and mus.get("beats"):
+            mus["beatSync"] = True
+        E.vary_transitions(p, st.get("vibe") or "dinamico", float(st["transition"].get("dur", 0.4)))
+    elif pr["transition"]:
+        st["transition"]["type"] = pr["transition"]
+        for it in p.get("timeline", []):
+            it.pop("transition", None)
+    return pr["understood"]

@@ -1490,14 +1490,16 @@ function renderRef() {
 function renderPedidos() {
   const P = S.P, box = $("#t-pedidos");
   const list = (P.requests || []).slice().reverse().map((r) => `<div class="req ${r.status === "hecho" ? "done" : ""}"><span class="st">${r.status === "hecho" ? "Hecho" : "Pendiente"}</span> · <span class="fine" style="margin:0">${new Date(r.t * 1000).toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-    <div>${esc(r.text)}</div>${r.note ? `<div class="note">Claude: ${esc(r.note)}</div>` : ""}</div>`).join("");
-  box.innerHTML = `<div class="tip">Escribe lo que quieres cambiar como se lo dirías a un editor. Luego dile a Claude en el chat: <b>«revisa mis pedidos de Reel Studio»</b>. Los cambios aparecen aquí solos.</div>
+    <div>${esc(r.text)}</div>${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}</div>`).join("");
+  box.innerHTML = `<div class="tip">Escribe lo que quieres cambiar, por ejemplo «ritmo más rápido», «subtítulos amarillos arriba», «colores cálidos» o «que dure 1 minuto». Se aplica al instante. Lo que no reconozca queda pendiente para revisarlo con Claude en el chat.</div>
     <textarea id="reqText" placeholder="Ej.: quita la parte donde me equivoco al inicio, pon más tomas de dron entre el segundo 10 y 20, y que el color se parezca a la referencia"></textarea>
     <button class="btn primary" id="reqGo" style="margin-top:8px">Guardar pedido</button>
     <div class="card-list" style="margin-top:14px">${list}</div>`;
   $("#reqGo").onclick = async () => {
     const t = $("#reqText").value.trim(); if (!t) return;
-    await flushSave(); S.P = await api("POST", `/api/projects/${P.id}/requests`, { text: t }); render(); toast("Pedido guardado para Claude.");
+    await flushSave(); S.P = await api("POST", `/api/projects/${P.id}/requests`, { text: t }); render();
+    const last = (S.P.requests || []).slice(-1)[0];
+    toast(last && last.status === "hecho" ? last.note : "Pedido guardado. No lo reconocí, así que queda pendiente para Claude.", 5000);
   };
 }
 
@@ -2098,7 +2100,7 @@ $("#gGo").addEventListener("click", async () => {
   const prompt = $("#gPrompt").value.trim();
   if (prompt) {
     if (P.reference) { P.reference.prompt = prompt; scheduleSave(); }
-    try { await flushSave(); await api("POST", `/api/projects/${P.id}/requests`, { text: prompt, kind: P.reference ? "referencia" : "" }); } catch (_) {}
+    try { await flushSave(); await api("POST", `/api/projects/${P.id}/requests`, { text: prompt, kind: P.reference ? "referencia" : "", forMake: true }); } catch (_) {}
   }
   const fmtB = $("#gFmt button.on");
   runMake({ style: S.make.style, format: fmtB ? fmtB.dataset.v : P.settings.format, title: $("#gTitle").value, cta: $("#gCta").value,

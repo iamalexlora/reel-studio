@@ -843,9 +843,23 @@ class H(BaseHTTPRequestHandler):
             if not text:
                 return self.send_json({"error": "Escribe el pedido."}, 400)
 
+            import pedido as PD
+            for_make = body.get("forMake")
+
             def fn(p):
-                p["requests"].append({"id": uuid.uuid4().hex[:6], "text": text, "status": "pendiente",
-                                      "t": time.time(), "note": ""})
+                if for_make:  # lo aplica «Hacer mi video» ahora mismo
+                    got = PD.parse(text)["understood"]
+                    for r0 in p["requests"]:  # el mismo pedido que había quedado pendiente antes
+                        if r0.get("status") == "pendiente" and r0.get("text", "").endswith(text.strip()):
+                            r0["status"] = "hecho"; r0["note"] = "Aplicado con «Hacer mi video»."
+                else:
+                    got = PD.apply_now(p, text)
+                    if got:
+                        E.add_log(p, "auto", "Pedido aplicado: " + ", ".join(got) + ".")
+                p["requests"].append({"id": uuid.uuid4().hex[:6], "text": text, "t": time.time(),
+                                      "status": "hecho" if got else "pendiente",
+                                      "note": ("Aplicado: " + ", ".join(got) + ".") if got else
+                                      "No reconocí una instrucción concreta; queda para revisarlo con Claude en el chat."})
             return self.send_json(E.update(pid, fn))
         if action == "reveal":
             name = Path(self.body_json().get("file", "")).name

@@ -2004,7 +2004,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
         acmd += ["-i", str(voz_path)]
     if music_path:
         vol = float(mus.get("volume", 0.35))
-        if not has_voice:  # sin voces, la música es el audio principal: va a volumen completo
+        if not has_voice and not mus.get("userVol"):  # sin voces, la música es el audio principal: va a volumen completo
             vol = max(vol, 1.0)
         fi, fo = float(mus.get("fadeIn", 1)), float(mus.get("fadeOut", 2))
         mchain = (f"[{mi}:a]aresample=48000,aformat=channel_layouts=stereo,"

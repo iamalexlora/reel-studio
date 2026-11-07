@@ -1,5 +1,16 @@
 [
  {
+  "v": "3.2",
+  "date": "7 nov 2026",
+  "title": "Lo que escribes, se hace",
+  "items": [
+   "«Cuéntame cómo lo quieres» ahora sí cambia el video: duración, ritmo, estilo, colores, transiciones, subtítulos, música, título y cierre.",
+   "Ejemplos: «que dure 1:30», «ritmo rápido», «subtítulos amarillos arriba», «solo cortes», «colores cálidos», «música suave de fondo», «título: Mi viaje», «termina invitando a seguirme».",
+   "Lo que escribes manda sobre las opciones marcadas.",
+   "Al terminar te muestro qué entendí de tu pedido."
+  ]
+ },
+ {
   "v": "3.1",
   "date": "7 nov 2026",
   "title": "Duración exacta y transiciones al ritmo",

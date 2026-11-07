@@ -289,6 +289,10 @@ def make_video(pid: str, o: dict) -> dict:
     import anims as A
     j = new_job("make", pid, "Hacer mi video")
 
+    import pedido as PD
+    pr = PD.parse(o.get("prompt") or "")
+    o.update(pr["make"])  # lo que pidió por escrito manda sobre las opciones marcadas
+
     def work(prog):
         prog(0.02, "Esperando que terminen de procesarse tus clips…")
         if o.get("videoAudio") is False:  # sin el audio de los videos no hay nada que transcribir ni limpiar
@@ -345,6 +349,13 @@ def make_video(pid: str, o: dict) -> dict:
             keep = {k: q["style"].get(k) for k in ("font",) if (E.load_brand(st.get("brand", "")) or {}).get("fontFile")}
             q["style"] = E.default_style(vibe["preset"])
             q["style"].update({k: v for k, v in keep.items() if v})
+            if pr["order"]:
+                st["clipOrder"] = pr["order"]
+                E.sort_clips(q, pr["order"])
+            PD.apply(q, pr, vibe["pace"])
+            if pr["transition"] and pr["transition"] != "variado":
+                st["transition"]["type"] = pr["transition"]
+            q["madeNotes"] = {"prompt": (o.get("prompt") or "").strip(), "understood": pr["understood"]}
             if o.get("clean", True):
                 E.autoclean(q)
             msg = E.auto_assemble(q)
@@ -356,7 +367,7 @@ def make_video(pid: str, o: dict) -> dict:
                 while ready and tot < vz["duration"] + 1.5 + len(tl) * vibe["tdur"] and k < 300:
                     c = ready[k % len(ready)]
                     rnd = k // len(ready)
-                    seg = min(c["duration"], max(1.5, vibe["pace"] * 1.2))
+                    seg = min(c["duration"], max(1.5, float(st.get("pace", vibe["pace"])) * 1.2))
                     a0 = round((rnd * seg) % max(0.01, c["duration"] - seg), 2)
                     tl.append({"clip": c["id"], "in": a0, "out": round(min(c["duration"], a0 + seg), 2)})
                     tot += seg; k += 1
@@ -371,8 +382,8 @@ def make_video(pid: str, o: dict) -> dict:
                 if not target and mus.get("file") and mus.get("duration"):
                     target = min(180.0, float(mus["duration"]))
                 if ready and not talking and target > 0:
-                    pace = vibe["pace"]
-                    step = max(0.6, pace - (0.3 if vibe["trans"] != "corte" else 0.1))
+                    pace = float(st.get("pace", vibe["pace"]))
+                    step = max(0.6, pace - (0.3 if st["transition"]["type"] != "corte" else 0.1))
                     tl, tot, k = [], 0.0, 0
                     while tot < target * 1.35 + 2 and k < 800:
                         c = ready[k % len(ready)]
@@ -388,7 +399,11 @@ def make_video(pid: str, o: dict) -> dict:
                     msg = f"Armé {len(q['timeline'])} tomas para {int(target // 60)}:{int(target % 60):02d}."
             if (st.get("music") or {}).get("file") and (st.get("music") or {}).get("beats"):
                 st["music"]["beatSync"] = True
-            E.vary_transitions(q, o.get("style") or "dinamico", vibe["tdur"])
+            if not pr["transition"] or pr["transition"] == "variado":
+                E.vary_transitions(q, o.get("style") or "dinamico", vibe["tdur"])
+            else:
+                for it0 in q["timeline"]:
+                    it0.pop("transition", None)
             E.add_log(q, "auto", f"Hacer mi video ({vibe['label']}): {msg}")
         prog(0.08, "Limpiando y armando…")
         E.update(pid, setup)

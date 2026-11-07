@@ -686,7 +686,7 @@ function syncMusic(force) {
   if (force || Math.abs(music.currentTime - t) > 0.3) { try { music.currentTime = t; } catch (_) {} }
   let vol = +m.volume || 0.35;
   const anyVoice = (S.P.settings.voice && S.P.settings.voice.file) || S.plan.items.some((i) => i.speech && !(clipOf(i.clip) || {}).muted);
-  if (!anyVoice) vol = 1; // sin voces la música es lo principal
+  if (!anyVoice && !m.userVol) vol = 1; // sin voces la música es lo principal
   if (m.duck && S.cur && S.cur.itm.speech) vol *= 0.4;
   const fi = +m.fadeIn || 0, fo = +m.fadeOut || 0;
   if (fi && S.outT < fi) vol *= S.outT / fi;
@@ -1276,7 +1276,7 @@ function renderAudio() {
     <p class="fine">Más corta = ritmo más rápido. 0,30 s suena natural para reels.</p></div>`;
   $("#musIn").onchange = (e) => { if (e.target.files[0]) addMusic(e.target.files[0]); };
   if ($("#musDel")) $("#musDel").onclick = async () => { await flushSave(); S.P = await api("DELETE", `/api/projects/${P.id}/music`); render(); };
-  bindRange("mVol", (v) => (m.volume = v), (v) => Math.round(v * 100) + " %");
+  bindRange("mVol", (v) => { m.volume = v; m.userVol = true; }, (v) => Math.round(v * 100) + " %");
   bindRange("mStart", (v) => (m.start = v), fmt); bindRange("mIn", (v) => (m.fadeIn = v), (v) => num(v, 1) + " s"); bindRange("mOut", (v) => (m.fadeOut = v), (v) => num(v, 1) + " s");
   bindRange("pauseR", (v) => (st.maxPause = v), (v) => num(v) + " s"); bindRange("padR", (v) => (st.padding = v), (v) => num(v) + " s");
   bindToggle("muteAll", (v) => withAudio.forEach((c) => (c.muted = v)));
@@ -1968,6 +1968,7 @@ function showMadeSummary() {
   card = document.createElement("div"); card.id = "madeCard"; card.className = "made glass";
   card.innerHTML = `<div class="made-h"><b>✦ Tu video está listo</b><button class="upd-x" aria-label="Cerrar">×</button></div>
     <div class="made-facts">${facts.map(([v, l]) => `<span><b>${v}</b><small>${l}</small></span>`).join("")}</div>
+    ${P.madeNotes && P.madeNotes.prompt ? `<p class="fine made-ask">${P.madeNotes.understood.length ? `<b>De lo que pediste:</b> ${P.madeNotes.understood.map(esc).join(" · ")}.` : "No reconocí instrucciones concretas en lo que escribiste; prueba con frases como «ritmo rápido», «subtítulos amarillos» o «que dure 1 minuto»."}</p>` : ""}
     <p class="fine">${look ? `Look «${esc(look)}»` : ""}${tr ? ` · transición «${esc(tr)}»` : ""}${st.subtitles ? " · subtítulos" : ""}. Todo está en la línea de tiempo: toca cualquier parte para cambiarla.</p>
     <div class="made-btns"><button class="btn small" id="madeEdit">Ver la edición</button><button class="btn small primary" id="madeExp">Exportar</button></div>`;
   $("#viewer").appendChild(card);

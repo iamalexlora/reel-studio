@@ -1899,7 +1899,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     tmp_out = out_file.with_name(out_file.stem + ".tmp" + out_file.suffix)
 
     # 1. Piezas (caché: si nada cambió en un clip, no se vuelve a renderizar)
-    base_key = [geo, fps, hdr, preview, st.get("fit"), st.get("cropX"), st.get("cropY"), st.get("grade"), st.get("punchIn", True), 4]
+    base_key = [geo, fps, hdr, preview, st.get("fit"), st.get("cropX"), st.get("cropY"), st.get("grade"), st.get("punchIn", True), 5]
     broll_jobs = []
     for b in p["broll"]:
         c = clip_by_id(p, b["clip"])

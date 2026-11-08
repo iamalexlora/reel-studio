@@ -113,10 +113,11 @@ def hdr_to_sdr(c: dict) -> str:
     trc = (c.get("color") or {}).get("transfer") or "arib-std-b67"
     tin = "smpte2084" if trc == "smpte2084" else "arib-std-b67"
     if has_filter("zscale") and has_filter("tonemap"):
-        return (f"zscale=tin={tin}:pin=bt2020:min=bt2020nc:t=linear:npl=203,format=gbrpf32le,"
-                "zscale=p=bt709,tonemap=mobius:param=0.35:desat=0,"
-                "zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
-    return "colorspace=all=bt709:iall=bt2020:fast=1:format=yuv420p"
+        # ajustado a ojo con clips reales del iPhone para que se parezca a lo que muestra la vista previa
+        return (f"zscale=tin={tin}:pin=bt2020:min=bt2020nc:t=linear:npl=100,format=gbrpf32le,"
+                "zscale=p=bt709,tonemap=mobius:param=0.5:desat=0,"
+                "zscale=t=bt709:m=bt709:r=tv,format=yuv420p,eq=contrast=1.12:saturation=1.28:gamma=0.95")
+    return "colorspace=all=bt709:iall=bt2020:fast=1:format=yuv420p,eq=contrast=1.1:saturation=1.25"
 
 
 def graph_args(gfile: Path) -> list[str]:

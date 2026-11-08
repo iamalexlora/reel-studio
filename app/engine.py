@@ -223,6 +223,7 @@ DEFAULT_SETTINGS = {
     "brand": "",
     "maxDur": 0,
     "autoTranscribe": False,
+    "hdr": True,                # salida HDR cuando todos los clips lo son (se puede apagar)
     "clipOrder": "num-asc",
     "logo": {"on": False, "pos": "arriba-derecha", "size": 0.14, "opacity": 0.9},
     "intro": {"on": False, "text": "", "dur": 2.0},
@@ -1865,7 +1866,8 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     used = [clip_by_id(p, it["clip"]) for it in p["timeline"]] + [clip_by_id(p, b["clip"]) for b in p["broll"]]
     used = [c for c in used if c]
     anim_list = [a for a in (p.get("anims") or []) if a.get("on", True) and str(a.get("text", "")).strip()]
-    hdr = bool(used) and all(c.get("hdr") for c in used) and not grading_active(p) and not preview and not anim_list
+    hdr = bool(used) and all(c.get("hdr") for c in used) and not grading_active(p) and not preview and not anim_list \
+        and st.get("hdr", True) is not False and opts.get("hdr", True) is not False
     trc = next(((c.get("color") or {}).get("transfer") for c in used if c.get("hdr")), "arib-std-b67")
     ctx = {"fps": fps, "geo": geo, "hdr": hdr, "draft": preview}
 

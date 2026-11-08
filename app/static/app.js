@@ -1542,17 +1542,21 @@ function renderExpOpts() {
   const maxSide = Math.max(0, ...P.clips.map((c) => Math.min(c.width || 0, c.height || 0))), maxFps = Math.max(30, ...P.clips.map((c) => c.fps || 30));
   $("#resNote").innerHTML = E.res > maxSide + 8 ? `<span class="warn">Tus clips llegan a ${maxSide}p: exportar a más resolución no agrega detalle, solo peso.</span>` : "";
   $("#fpsNote").innerHTML = E.fps > maxFps + 1 ? `<span class="warn">Tus clips están a ${Math.round(maxFps)} fps: a ${E.fps} no se verá más fluido.</span>` : `Tus clips: hasta ${Math.round(maxFps)} fps.`;
-  const hdr = P.clips.length && P.clips.every((c) => c.hdr) && P.settings.grade.look === "natural";
-  $("#codecNote").textContent = E.codec === "prores" ? "Archivo .mov muy pesado, sin pérdida visible: para seguir en Premiere, Final Cut o DaVinci." : hdr ? "Tus clips son HDR: sale en HEVC 10-bit HDR para conservar el brillo del iPhone." : "MP4 listo para Instagram, TikTok y YouTube.";
+  const anyHdr = P.clips.some((c) => c.hdr);
+  $("#eHdrRow").hidden = !anyHdr || E.codec === "prores";
+  $("#eHdr").checked = P.settings.hdr !== false;
+  const hdr = P.clips.length && P.clips.every((c) => c.hdr) && P.settings.grade.look === "natural" && P.settings.hdr !== false;
+  $("#codecNote").textContent = E.codec === "prores" ? "Archivo .mov muy pesado, sin pérdida visible: para seguir en Premiere, Final Cut o DaVinci." : hdr ? "Tus clips son HDR: sale en HEVC 10-bit HDR para conservar el brillo del iPhone." : anyHdr && P.settings.hdr === false ? "HDR apagado: colores normales (SDR), se ven igual en todos los teléfonos." : "MP4 listo para Instagram, TikTok y YouTube.";
   $("#expInfo").textContent = `Duración ${fmt(S.plan.total)} · ${G.label} · ${W}×${H} · ${E.fps} fps`;
   $("#expGo").textContent = `Exportar ${E.codec === "prores" ? "MOV" : "MP4"} ${W}×${H}`;
 }
 [["#eFmt", "format", String], ["#eRes", "res", Number], ["#eFps", "fps", Number], ["#eQ", "quality", String], ["#eCodec", "codec", String]].forEach(([sel, key, conv]) => {
   $(sel).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.exp[key] = conv(b.dataset.v); renderExpOpts(); });
 });
+$("#eHdr").addEventListener("change", (e) => { S.P.settings.hdr = e.target.checked; scheduleSave(); renderExpOpts(); });
 $("#expGo").addEventListener("click", async () => {
   const id = S.P.id, E = S.exp;
-  const opts = { format: E.format, res: E.res, fps: E.fps, quality: E.quality, codec: E.codec, subtitles: $("#eSubs").checked, srt: $("#eSrt").checked, loudnorm: $("#eLoud").checked };
+  const opts = { format: E.format, res: E.res, fps: E.fps, quality: E.quality, codec: E.codec, subtitles: $("#eSubs").checked, srt: $("#eSrt").checked, loudnorm: $("#eLoud").checked, hdr: S.P.settings.hdr !== false };
   $("#expOpts").hidden = true; $("#expProg").hidden = false; $("#expGo").hidden = true; $("#expBar").style.width = "0%";
   let j0;
   try { j0 = await api("POST", `/api/projects/${id}/export`, opts); } catch (e) { toast(e.message, 6000); $("#expOpts").hidden = false; $("#expGo").hidden = false; return; }

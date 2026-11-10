@@ -37,6 +37,7 @@ KINDS = {
     "llamada": {"label": "Llamada a la acción", "dur": 3.5, "pos": "abajo", "text": "Sígueme para más", "sub": ""},
     "dato":    {"label": "Número que sube", "dur": 3.0, "pos": "centro", "text": "100", "sub": "clientes felices"},
     "ubicacion": {"label": "Ubicación", "dur": 3.5, "pos": "arriba", "text": "Tu ciudad", "sub": "Referencia del lugar"},
+    "marcador": {"label": "Pin en la toma", "dur": 4.0, "pos": "centro", "text": "Tu lugar", "sub": "Referencia"},
 }
 POSITIONS = ("arriba", "centro", "abajo")
 
@@ -297,6 +298,43 @@ def build_html(p: dict, a: dict, geo: dict, kit: dict) -> tuple[str, list[tuple[
           .from("#a .r>span",{{yPercent:110,duration:.55,ease:"power4.out"}},.5)
           .to("#a .pin",{{y:-{10 * k:.0f},duration:.45,ease:"sine.inOut",yoyo:true,repeat:3}},1.1)
           .to("#a .card",{{scale:.7,opacity:0,y:-{40 * k:.0f},duration:.4,ease:"power2.in"}},{out:.2f});'''
+    elif kind == "marcador":
+        # pin que cae sobre un punto de la toma (x, y de 0 a 1), ondas y una etiqueta unida por una línea
+        px = W * min(0.9, max(0.1, float(a.get("x", 0.5))))
+        py = H * min(0.92, max(0.25, float(a.get("y", 0.6))))
+        ly = py - 420 * k
+        lx = min(max(px, W * 0.5 - 0), W * 0.5)  # la etiqueta va centrada; la línea sube desde el pin
+        body = f'''<div id="a">
+          <div class="rg r1" style="left:{px:.0f}px;top:{py:.0f}px"></div><div class="rg r2" style="left:{px:.0f}px;top:{py:.0f}px"></div>
+          <div class="sh" style="left:{px:.0f}px;top:{py:.0f}px"></div>
+          <svg class="pin" style="left:{px:.0f}px;top:{py:.0f}px" viewBox="0 0 24 32">
+            <path d="M12 0C5.4 0 0 5.3 0 11.9 0 20.8 12 32 12 32s12-11.2 12-20.1C24 5.3 18.6 0 12 0z" fill="{acc}"/>
+            <circle cx="12" cy="11.6" r="4.6" fill="{ink}"/></svg>
+          <div class="ln" style="left:{px:.0f}px;top:{ly:.0f}px;height:{py - ly - 120 * k:.0f}px"></div>
+          <div class="card" style="left:{lx:.0f}px;top:{ly:.0f}px"><div class="bar"></div>
+            <div class="n"><span>{text}</span></div>{f'<div class="r"><span>{sub}</span></div>' if sub else ''}</div>
+        </div>'''
+        css = f'''.rg{{position:absolute;width:{s(170)};height:{s(60)};margin:{s(-30)} 0 0 {s(-85)};border-radius:50%;border:{s(6)} solid {acc}}}
+        .sh{{position:absolute;width:{s(70)};height:{s(22)};margin:{s(-11)} 0 0 {s(-35)};border-radius:50%;background:rgba(0,0,0,.45);filter:blur({s(4)})}}
+        .pin{{position:absolute;width:{s(92)};height:{s(122)};margin:{s(-122)} 0 0 {s(-46)};transform-origin:50% 100%;
+              filter:drop-shadow(0 {s(6)} {s(10)} rgba(0,0,0,.4))}}
+        .ln{{position:absolute;width:{s(5)};margin-left:{s(-2.5)};background:linear-gradient(#fff,rgba(255,255,255,.2));transform-origin:50% 100%;border-radius:{s(3)}}}
+        .card{{position:absolute;transform:translate(-50%,-100%);padding:{s(24)} {s(44)} {s(26)};border-radius:{s(34)};
+              background:rgba(12,12,14,.7);box-shadow:0 {s(20)} {s(60)} rgba(0,0,0,.45);text-align:center;white-space:nowrap;overflow:hidden}}
+        .bar{{height:{s(8)};width:{s(120)};margin:0 auto {s(14)};border-radius:{s(6)};background:{acc};transform-origin:50% 50%}}
+        .n,.r{{overflow:hidden}} .n>span,.r>span{{display:inline-block}}
+        .n{{font-family:var(--fd);font-weight:var(--wd);font-size:{s(84)};color:#fff;letter-spacing:-.02em;line-height:1.05}}
+        .r{{font-family:var(--fb);font-weight:var(--wb);font-size:{s(42)};color:#fff;opacity:.88;margin-top:{s(8)}}}'''
+        js = f'''tl.from("#a .pin",{{y:-{420 * k:.0f},opacity:0,duration:.55,ease:"bounce.out"}},0)
+          .from("#a .sh",{{scale:0,opacity:0,duration:.4,ease:"power2.out"}},.2)
+          .fromTo("#a .r1",{{scale:.1,opacity:1}},{{scale:1.8,opacity:0,duration:1.1,ease:"power2.out",repeat:2}},.5)
+          .fromTo("#a .r2",{{scale:.1,opacity:1}},{{scale:1.8,opacity:0,duration:1.1,ease:"power2.out",repeat:2}},1.05)
+          .from("#a .ln",{{scaleY:0,duration:.45,ease:"power3.out"}},.6)
+          .from("#a .card",{{scale:.5,opacity:0,y:{30 * k:.0f},duration:.55,ease:"back.out(2)"}},.9)
+          .from("#a .bar",{{scaleX:0,duration:.5,ease:"expo.out"}},1.1)
+          .from("#a .n>span",{{yPercent:110,duration:.55,ease:"power4.out"}},1.05)
+          .from("#a .r>span",{{yPercent:110,duration:.55,ease:"power4.out"}},1.2)
+          .to("#a",{{opacity:0,y:-{30 * k:.0f},duration:.4,ease:"power2.in"}},{out:.2f});'''
     else:  # dato
         raw = str(a.get("text") or "0")
         digits = "".join(ch for ch in raw if ch.isdigit() or ch in ".,")
@@ -341,7 +379,7 @@ window.__timelines["main"] = tl; tl.seek(0);
 
 
 def anim_key(p: dict, a: dict, geo: dict, fps: int, kit: dict) -> str:
-    raw = json.dumps([a.get(x) for x in ("kind", "text", "sub", "dur", "pos")] +
+    raw = json.dumps([a.get(x) for x in ("kind", "text", "sub", "dur", "pos", "x", "y")] +
                      [geo["W"], geo["H"], fps, _accent(p, kit), kit.get("fontFile"), kit.get("id"), HF_VERSION, 2],
                      sort_keys=True, default=str)
     return hashlib.sha1(raw.encode()).hexdigest()[:16]

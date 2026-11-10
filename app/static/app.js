@@ -1757,12 +1757,13 @@ new MutationObserver((muts) => {
 window.addEventListener("resize", () => queueGliders(false));
 
 /* ---------------------------------------------------------------- animaciones (HyperFrames) */
-const ANIM_LABEL = { titulo: "Título", frase: "Frase destacada", nombre: "Nombre y cargo", llamada: "Llamada a la acción", dato: "Número que sube", ubicacion: "Ubicación" };
+const ANIM_LABEL = { titulo: "Título", frase: "Frase destacada", nombre: "Nombre y cargo", llamada: "Llamada a la acción", dato: "Número que sube", ubicacion: "Ubicación", marcador: "Pin en la toma" };
 const ANIM_DEF = {
   titulo: { text: "Tu título aquí", sub: "", dur: 3, pos: "centro" }, frase: { text: "Dato clave", sub: "", dur: 2.5, pos: "arriba" },
   nombre: { text: "Tu nombre", sub: "Lo que haces", dur: 4, pos: "abajo" }, llamada: { text: "Sígueme para más", sub: "", dur: 3.5, pos: "abajo" },
   dato: { text: "100", sub: "clientes felices", dur: 3, pos: "centro" },
   ubicacion: { text: "Tu ciudad", sub: "Referencia del lugar", dur: 3.5, pos: "arriba" },
+  marcador: { text: "Tu lugar", sub: "Referencia", dur: 4, pos: "centro" },
 };
 const ANIM_ICON = {
   titulo: '<svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
@@ -1770,6 +1771,7 @@ const ANIM_ICON = {
   nombre: '<svg viewBox="0 0 24 24"><rect x="4" y="13" width="3" height="7" rx="1.5" fill="currentColor"/><path d="M10 15h9M10 19h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
   llamada: '<svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="10" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8" cy="12" r="2.6" fill="currentColor"/></svg>',
   dato: '<svg viewBox="0 0 24 24"><path d="M5 18V12M10 18V8M15 18v-4M20 18V5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',  ubicacion: '<svg viewBox="0 0 24 24"><path d="M12 2.5c-3.9 0-7 3-7 6.9 0 5.2 7 12.1 7 12.1s7-6.9 7-12.1c0-3.9-3.1-6.9-7-6.9z" fill="currentColor"/><circle cx="12" cy="9.4" r="2.6" fill="var(--bg, #000)"/></svg>',
+  marcador: '<svg viewBox="0 0 24 24"><path d="M12 2.5c-3.9 0-7 3-7 6.9 0 5.2 7 12.1 7 12.1s7-6.9 7-12.1c0-3.9-3.1-6.9-7-6.9z" fill="currentColor"/><circle cx="12" cy="9.4" r="2.6" fill="var(--bg, #000)"/></svg>',
 };
 S.animStatus = null;
 const animFrames = {};

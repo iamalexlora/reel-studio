@@ -848,6 +848,12 @@ def item_segments(p: dict, item: dict) -> list[list[float]]:
         else:
             segs.append([s, e])
         prev_kept = i
+    if segs and not st.get("removeSilences", True):
+        # sin quitar silencios, el video va completo: también el inicio y el final sin voz
+        if not W[0]["cut"]:
+            segs[0][0] = cin
+        if not W[-1]["cut"]:
+            segs[-1][1] = cout
     return [[round(a, 3), round(b, 3)] for a, b in segs if b - a > 0.04]
 
 

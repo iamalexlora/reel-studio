@@ -2032,6 +2032,20 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
             ag.append(f"{cur}[mus]amix=inputs=2:duration=first:normalize=0[mix]")
     else:
         ag.append(f"{cur}anull[mix]")
+    # efectos de sonido puntuales: [{"file": "media/sfx/x.mp3", "at": s, "gain": dB}]
+    sfx = [x for x in (st.get("sfx") or []) if x.get("file") and (d / x["file"]).exists()
+           and 0 <= float(x.get("at", 0)) < total]
+    if sfx:
+        ag = [g.replace("[mix]", "[mix0]") for g in ag]
+        base = len(piece_files) + (1 if music_path else 0) + (1 if voz_path else 0)
+        labs = []
+        for i, x in enumerate(sfx):
+            acmd += ["-i", str(d / x["file"])]
+            ms = int(float(x["at"]) * 1000)
+            ag.append(f"[{base + i}:a]aresample=48000,aformat=channel_layouts=stereo,"
+                      f"volume={float(x.get('gain', -6)):.1f}dB,adelay={ms}|{ms},apad,atrim=end={total:.4f}[sfx{i}]")
+            labs.append(f"[sfx{i}]")
+        ag.append("[mix0]" + "".join(labs) + f"amix=inputs={len(labs) + 1}:duration=first:normalize=0[mix]")
     agf = work / "audio.txt"
     agf.write_text(";\n".join(ag), encoding="utf-8")
     mix = work / "mix.wav"

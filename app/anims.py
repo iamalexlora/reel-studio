@@ -36,6 +36,7 @@ KINDS = {
     "nombre":  {"label": "Nombre y cargo", "dur": 4.0, "pos": "abajo", "text": "Tu nombre", "sub": "Lo que haces"},
     "llamada": {"label": "Llamada a la acción", "dur": 3.5, "pos": "abajo", "text": "Sígueme para más", "sub": ""},
     "dato":    {"label": "Número que sube", "dur": 3.0, "pos": "centro", "text": "100", "sub": "clientes felices"},
+    "ubicacion": {"label": "Ubicación", "dur": 3.5, "pos": "arriba", "text": "Tu ciudad", "sub": "Referencia del lugar"},
 }
 POSITIONS = ("arriba", "centro", "abajo")
 
@@ -272,6 +273,30 @@ def build_html(p: dict, a: dict, geo: dict, kit: dict) -> tuple[str, list[tuple[
           .from("#a .tx",{{x:-{20 * k:.0f},opacity:0,duration:.45,ease:"power3.out"}},.35)
           .to("#a .ic",{{scale:1.14,duration:.32,ease:"sine.inOut",yoyo:true,repeat:3}},1.0)
           .to("#a .pill",{{y:{80 * k:.0f},opacity:0,scale:.85,duration:.4,ease:"power2.in"}},{out:.2f});'''
+    elif kind == "ubicacion":
+        body = f'''<div id="a" class="c" style="top:{y:.0f}px"><div class="card">
+          <div class="pinw"><div class="ring"></div><svg class="pin" viewBox="0 0 24 32">
+            <path d="M12 0C5.4 0 0 5.3 0 11.9 0 20.8 12 32 12 32s12-11.2 12-20.1C24 5.3 18.6 0 12 0z" fill="{acc}"/>
+            <circle cx="12" cy="11.6" r="4.6" fill="{ink}"/></svg></div>
+          <div class="txt"><div class="n"><span>{text}</span></div>{f'<div class="r"><span>{sub}</span></div>' if sub else ''}</div>
+        </div></div>'''
+        css = f'''.c{{position:absolute;left:50%;transform:translate(-50%,-50%)}}
+        .card{{display:flex;align-items:center;gap:{s(26)};padding:{s(22)} {s(44)} {s(22)} {s(26)};border-radius:{s(40)};
+              background:rgba(12,12,14,.66);box-shadow:0 {s(20)} {s(60)} rgba(0,0,0,.4);white-space:nowrap;overflow:hidden}}
+        .pinw{{position:relative;width:{s(84)};height:{s(108)};flex:none}}
+        .pin{{position:absolute;inset:0;width:100%;height:100%;transform-origin:50% 100%;filter:drop-shadow(0 {s(8)} {s(10)} rgba(0,0,0,.35))}}
+        .ring{{position:absolute;left:50%;bottom:{s(-6)};width:{s(80)};height:{s(26)};margin-left:{s(-40)};border-radius:50%;
+              border:{s(5)} solid {acc}}}
+        .n,.r{{overflow:hidden}} .n>span,.r>span{{display:inline-block}}
+        .n{{font-family:var(--fd);font-weight:var(--wd);font-size:{s(76)};color:#fff;letter-spacing:-.02em;line-height:1.05}}
+        .r{{font-family:var(--fb);font-weight:var(--wb);font-size:{s(40)};color:#fff;opacity:.85;margin-top:{s(6)}}}'''
+        js = f'''tl.from("#a .card",{{scale:.4,opacity:0,duration:.5,ease:"back.out(2.2)"}},0)
+          .from("#a .pin",{{y:-{140 * k:.0f},opacity:0,duration:.5,ease:"bounce.out"}},.12)
+          .fromTo("#a .ring",{{scale:.2,opacity:1}},{{scale:1.6,opacity:0,duration:.7,ease:"power2.out"}},.55)
+          .from("#a .n>span",{{yPercent:110,duration:.55,ease:"power4.out"}},.35)
+          .from("#a .r>span",{{yPercent:110,duration:.55,ease:"power4.out"}},.5)
+          .to("#a .pin",{{y:-{10 * k:.0f},duration:.45,ease:"sine.inOut",yoyo:true,repeat:3}},1.1)
+          .to("#a .card",{{scale:.7,opacity:0,y:-{40 * k:.0f},duration:.4,ease:"power2.in"}},{out:.2f});'''
     else:  # dato
         raw = str(a.get("text") or "0")
         digits = "".join(ch for ch in raw if ch.isdigit() or ch in ".,")

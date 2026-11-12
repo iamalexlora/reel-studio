@@ -1,5 +1,15 @@
 [
  {
+  "v": "3.3",
+  "date": "12 nov 2026",
+  "title": "Probar estilos",
+  "items": [
+   "Nuevo botón «Probar estilos»: mira tu video con hasta 4 estilos a la vez antes de decidir.",
+   "Cada prueba usa lo que se dice en tu video: subtítulos con el estilo y frases clave como animación.",
+   "Eliges cuánto dura cada prueba (10, 15 o 25 s) y con «Usar este estilo» se aplica al proyecto."
+  ]
+ },
+ {
   "v": "3.2",
   "date": "7 nov 2026",
   "title": "Lo que escribes, se hace",

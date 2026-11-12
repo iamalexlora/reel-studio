@@ -818,3 +818,17 @@ textarea.autogrow, #refPrompt { resize: vertical; min-height: 96px; max-height: 
 .req { position: relative; padding-right: 34px; }
 .req-del { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--field); color: var(--muted, #888); font-size: 15px; line-height: 22px; padding: 0; cursor: pointer; transition: background .15s, color .15s; }
 .req-del:hover { background: #ff3b30; color: #fff; }
+
+/* Probar estilos */
+.var-dlg { width: min(1100px, 94vw); }
+.var-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.var-pick button { border: 1px solid var(--line, rgba(127,127,127,.25)); background: var(--field); color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; transition: background .15s, color .15s; }
+.var-pick button.on { background: var(--accent, #0a84ff); color: #fff; border-color: transparent; }
+.var-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.var-row label { font-size: 13px; opacity: .8; }
+.var-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
+.var-card { background: var(--field); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.var-card video { width: 100%; max-height: 52vh; border-radius: 10px; background: #000; object-fit: contain; }
+.var-card b { font-size: 14px; }
+.var-card .btn { width: 100%; }
+#varSecs button { white-space: nowrap; min-width: 56px; }

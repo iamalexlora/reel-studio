@@ -189,6 +189,7 @@
       <div class="panel" id="t-log" hidden></div>
     </div>
     <div class="insp-foot">
+      <button class="btn" id="varBtn" title="Mira tu video con distintos estilos antes de decidir">Probar estilos</button>
       <button class="btn" id="previewBtn" disabled title="Renderiza una versión rápida con color, transiciones y música exactos">Vista previa final</button>
       <button class="btn primary" id="exportBtn" disabled>Exportar</button>
     </div>
@@ -291,6 +292,18 @@
   </form>
 </dialog>
 
+<dialog id="varDlg" class="glass-dlg var-dlg">
+  <form method="dialog" class="dlg">
+    <h2>Probar estilos</h2>
+    <p class="fine">Elige hasta 4 estilos. Armo los primeros segundos de tu video con cada uno, con los subtítulos y las frases clave de lo que se dice, para que compares antes de decidir.</p>
+    <div class="var-pick" id="varPick"></div>
+    <div class="var-row"><label for="varSecs">Duración de cada prueba</label>
+      <div class="seg" id="varSecs"><button type="button" data-v="10">10 s</button><button type="button" data-v="15" class="on">15 s</button><button type="button" data-v="25">25 s</button></div></div>
+    <div id="varProg" hidden><div class="meter"><div id="varBar"></div></div><p id="varMsg" class="fine"></p></div>
+    <div class="var-grid" id="varGrid"></div>
+    <div class="dlg-actions"><button class="btn ghost" value="close">Cerrar</button><button class="btn primary" type="button" id="varGo">Ver pruebas</button></div>
+  </form>
+</dialog>
 <dialog id="newsDlg" class="glass-dlg">
   <form method="dialog" class="dlg">
     <h2>Novedades</h2>

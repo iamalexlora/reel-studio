@@ -1862,7 +1862,7 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
     st = p["settings"]
     res = int(opts.get("res") or (2160 if opts.get("uhd") else 1080))
     if preview:
-        res = 1080  # vista previa nítida (antes 540): en la M4 sigue siendo rápida
+        res = 720 if opts.get("variant") else 1080  # vista previa nítida; las pruebas de estilo, más livianas
     geo = geometry(fmt, res)
     fps = pick_fps(p, opts.get("fps", "auto"))
     if preview:
@@ -1897,7 +1897,9 @@ def render(p: dict, opts: dict, progress=lambda f, msg="": None) -> dict:
             if folder not in q["exportFolders"]:
                 q["exportFolders"].append(folder)
         update(p["id"], _remember)
-    if preview:
+    if preview and opts.get("variant"):
+        out_file = d / "media" / f"var_{slug(str(opts['variant']))}.mp4"
+    elif preview:
         out_file = d / "media" / "preview.mp4"
     else:
         ext = ".mov" if codec == "prores" else ".mp4"

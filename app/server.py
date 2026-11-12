@@ -284,6 +284,73 @@ VIBES = {
 }
 
 
+def apply_vibe(q: dict, key: str) -> None:
+    """Pone en el proyecto el look, transición, ritmo y subtítulos de un estilo (sin tocar el armado)."""
+    vibe = VIBES.get(key) or VIBES["dinamico"]
+    st = q["settings"]
+    st["vibe"] = key if key in VIBES else "dinamico"
+    st["transition"] = {"type": vibe["trans"], "dur": vibe["tdur"]}
+    st["grade"]["look"] = vibe["look"]
+    keep = {k: q["style"].get(k) for k in ("font",) if (E.load_brand(st.get("brand", "")) or {}).get("fontFile")}
+    q["style"] = E.default_style(vibe["preset"])
+    q["style"].update({k: v for k, v in keep.items() if v})
+    E.vary_transitions(q, st["vibe"], vibe["tdur"])
+
+
+def variant_anims(q: dict) -> list:
+    """Título y frases clave sacadas de lo que se dice en el video."""
+    import anims as A
+    if not any(not w.get("cut") for w in q.get("words", [])):
+        return q.get("anims", [])
+    try:
+        return A.auto_anims(q, E.plan(q))
+    except Exception:
+        return q.get("anims", [])
+
+
+def make_variants(pid: str, o: dict) -> dict:
+    """Pruebas de estilo: el mismo video (y lo que se dice en él) con varios estilos, en clips cortos."""
+    import copy
+    keys = [k for k in (o.get("styles") or []) if k in VIBES][:4] or ["dinamico", "elegante", "viral"]
+    secs = max(6, min(40, int(o.get("seconds") or 15)))
+    j = new_job("variants", pid, "Probar estilos")
+
+    def work(prog):
+        base = E.load(pid)
+        if not any(c.get("status") in READY for c in base["clips"]) or not base.get("timeline"):
+            raise RuntimeError("Primero arma el video (sube clips o usa «Hacer mi video»).")
+        out = []
+        for n, key in enumerate(keys):
+            q = copy.deepcopy(base)
+            apply_vibe(q, key)
+            has_words = any(not w.get("cut") for w in q.get("words", []))
+            if has_words:
+                q["settings"]["subtitles"] = True
+            q["anims"] = variant_anims(q)
+            q["settings"]["maxDur"] = secs
+            q["settings"]["intro"]["on"] = False
+            q["settings"]["outro"]["on"] = False
+            lab = VIBES[key]["label"]
+
+            def pg(f, m="", n=n, lab=lab):
+                prog((n + f) / len(keys), f"Estilo {lab} ({n + 1} de {len(keys)}): {m}")
+            try:
+                E.render(q, {"preview": True, "variant": key}, pg)
+            except Exception:
+                if not q["anims"]:
+                    raise
+                q["anims"] = []  # si las animaciones no están activadas, igual se ve el estilo
+                E.render(q, {"preview": True, "variant": key}, pg)
+            out.append({"style": key, "label": lab, "file": f"var_{E.slug(key)}.mp4",
+                        "anims": q["anims"], "t": time.time()})
+
+        def save(p):
+            p["variants"] = out
+        E.update(pid, save)
+        return {"variants": out}
+    return run_job(j, work)
+
+
 def make_video(pid: str, o: dict) -> dict:
     """Un solo botón: limpia, arma, iguala color, pone estilo, subtítulos, animaciones y deja la vista previa."""
     import anims as A
@@ -749,6 +816,22 @@ class H(BaseHTTPRequestHandler):
             dest = d / f"referencia{ext}"
             receive(self, dest)
             return self.send_json(start_reference(pid, dest, Path(fn).stem))
+        if action == "variants":
+            return self.send_json(make_variants(pid, self.body_json()))
+        if action == "variant-apply":
+            key = self.body_json().get("style")
+            if key not in VIBES:
+                return self.send_json({"error": "Estilo desconocido."}, 400)
+
+            def fv(p):
+                apply_vibe(p, key)
+                v = next((x for x in p.get("variants", []) if x["style"] == key), None)
+                if v and v.get("anims"):
+                    p["anims"] = v["anims"]
+                if any(not w.get("cut") for w in p.get("words", [])):
+                    p["settings"]["subtitles"] = True
+                E.add_log(p, "auto", f"Estilo «{VIBES[key]['label']}» aplicado desde Probar estilos.")
+            return self.send_json(E.update(pid, fv))
         if action == "vary":
             def vf(p):
                 st = p["settings"]

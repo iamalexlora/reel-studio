@@ -2257,3 +2257,65 @@ setTimeout(hideSplash, 4500);
 /* el cuadro del pedido crece mientras escribes (sin límite de texto) */
 function growTA(t) { t.style.height = "auto"; t.style.height = Math.max(96, t.scrollHeight + 2) + "px"; }
 document.addEventListener("input", (e) => { if (e.target.matches && e.target.matches("textarea.autogrow, #refPrompt")) growTA(e.target); });
+
+/* ---------------------------------------------------------------- Probar estilos */
+S.varSel = null; S.varSecs = 15;
+function renderVarPick() {
+  const cur = (S.P && S.P.settings.vibe) || "dinamico";
+  if (!S.varSel) S.varSel = [cur, ...["elegante", "viral", "cinematico", "dinamico"].filter((k) => k !== cur)].slice(0, 3);
+  $("#varPick").innerHTML = VIBES.map(([k, l]) => `<button type="button" data-v="${k}" class="${S.varSel.includes(k) ? "on" : ""}">${l}${k === cur ? " (actual)" : ""}</button>`).join("");
+}
+function renderVarGrid(list) {
+  const P = S.P;
+  $("#varGrid").innerHTML = (list || []).map((v) => `<div class="var-card"><b>${esc(v.label)}</b>
+    <video src="/media/${P.id}/file/${v.file}?t=${Math.round(v.t || 0)}" controls loop playsinline preload="metadata"></video>
+    <button type="button" class="btn primary" data-use="${v.style}">Usar este estilo</button></div>`).join("");
+  $$("#varGrid video").forEach((v) => v.addEventListener("play", () => $$("#varGrid video").forEach((o) => { if (o !== v) o.pause(); })));
+}
+$("#varBtn").addEventListener("click", () => {
+  if (!S.P) return;
+  S.varSel = null; renderVarPick();
+  $("#varProg").hidden = true; $("#varGo").disabled = false;
+  renderVarGrid(S.P.variants || []);
+  $("#varDlg").showModal();
+});
+$("#varPick").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const k = b.dataset.v;
+  if (S.varSel.includes(k)) S.varSel = S.varSel.filter((x) => x !== k);
+  else if (S.varSel.length < 4) S.varSel.push(k);
+  else toast("Máximo 4 estilos a la vez");
+  renderVarPick();
+});
+$("#varSecs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  S.varSecs = +b.dataset.v; $$("#varSecs button").forEach((x) => x.classList.toggle("on", x === b));
+});
+$("#varGo").addEventListener("click", async () => {
+  if (!S.varSel.length) return toast("Elige al menos un estilo");
+  const id = S.P.id;
+  await flushSave();
+  $("#varGo").disabled = true; $("#varProg").hidden = false; $("#varBar").style.width = "0%"; $("#varGrid").innerHTML = "";
+  let j0;
+  try { j0 = await api("POST", `/api/projects/${id}/variants`, { styles: S.varSel, seconds: S.varSecs }); }
+  catch (er) { toast(er.message, 5000); $("#varGo").disabled = false; $("#varProg").hidden = true; return; }
+  for (;;) {
+    const j = await api("GET", "/api/jobs/" + j0.id);
+    $("#varBar").style.width = (j.progress * 100).toFixed(1) + "%";
+    $("#varMsg").textContent = `${j.message} ${Math.round(j.progress * 100)} %`;
+    if (j.status === "done") { if (S.P && S.P.id === id) S.P.variants = j.result.variants; renderVarGrid(j.result.variants); break; }
+    if (j.status === "error") { toast("No se pudieron armar las pruebas: " + j.error, 8000); break; }
+    await sleep(800);
+  }
+  $("#varProg").hidden = true; $("#varGo").disabled = false;
+});
+$("#varGrid").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-use]"); if (!b) return;
+  b.disabled = true;
+  try {
+    await flushSave();
+    S.P = await api("POST", `/api/projects/${S.P.id}/variant-apply`, { style: b.dataset.use });
+    $("#varDlg").close(); render();
+    toast("Estilo aplicado. Dale a «Vista previa final» para verlo completo.", 5000);
+  } catch (er) { toast(er.message, 5000); b.disabled = false; }
+});
